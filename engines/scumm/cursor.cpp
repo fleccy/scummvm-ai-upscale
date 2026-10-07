@@ -431,6 +431,31 @@ void ScummEngine::updateCursor() {
 	// FIXME: This is likely too small on high DPI displays with HE 70 games.
 #ifdef USE_RGB_COLOR
 	Graphics::PixelFormat format = _system->getScreenFormat();
+	// COMI remaster: the screen is RGB but the cursor stays 8-bit (shown with the cursor palette set in
+	// remasterSetPalette) and is scaled together with an AI-upscaled screen.
+	Common::Array<byte> remasterCursor;
+	if (_remasterEnabled) {
+		format = Graphics::PixelFormat::createFormatCLUT8();
+		if (_remasterScale > 1) {
+			const int s = _remasterScale;
+			// AI HD mode: the cursor (also the held inventory item) is AI-upscaled like the rest of the picture.
+			Common::Array<uint32> rgb;
+			uint32 key = 0;
+			if (remasterAICursor(cursor, width, height, transColor, rgb, key)) {
+				_remasterCursorRGB = true;
+				const Graphics::PixelFormat rgbFormat = _remasterFormat;
+				CursorMan.replaceCursor(rgb.data(), width * s, height * s, hotspotX * s, hotspotY * s, key, false, &rgbFormat);
+				return;
+			}
+			_remasterCursorRGB = false;
+			remasterScaleCursor(cursor, width, height, s, remasterCursor); // Scale2x/3x: smooth edges, still crisp
+			cursor = remasterCursor.data();
+			width *= s;
+			height *= s;
+			hotspotX *= s;
+			hotspotY *= s;
+		}
+	}
 	CursorMan.replaceCursor(cursor, width, height,
 							hotspotX, hotspotY,
 							(_game.platform == Common::kPlatformNES ? cursor[63] : transColor),
@@ -573,6 +598,31 @@ void ScummEngine_v7::updateCursor() {
 
 #ifdef USE_RGB_COLOR
 	Graphics::PixelFormat format = _system->getScreenFormat();
+	// COMI remaster: the screen is RGB but the cursor stays 8-bit (shown with the cursor palette set in
+	// remasterSetPalette) and is scaled together with an AI-upscaled screen.
+	Common::Array<byte> remasterCursor;
+	if (_remasterEnabled) {
+		format = Graphics::PixelFormat::createFormatCLUT8();
+		if (_remasterScale > 1) {
+			const int s = _remasterScale;
+			// AI HD mode: the cursor (also the held inventory item) is AI-upscaled like the rest of the picture.
+			Common::Array<uint32> rgb;
+			uint32 key = 0;
+			if (remasterAICursor(cursor, width, height, (byte)transColor, rgb, key)) {
+				_remasterCursorRGB = true;
+				const Graphics::PixelFormat rgbFormat = _remasterFormat;
+				CursorMan.replaceCursor(rgb.data(), width * s, height * s, hotspotX * s, hotspotY * s, key, false, &rgbFormat);
+				return;
+			}
+			_remasterCursorRGB = false;
+			remasterScaleCursor(cursor, width, height, s, remasterCursor); // Scale2x/3x: smooth edges, still crisp
+			cursor = remasterCursor.data();
+			width *= s;
+			height *= s;
+			hotspotX *= s;
+			hotspotY *= s;
+		}
+	}
 	CursorMan.replaceCursor(cursor, width, height,
 							hotspotX, hotspotY,
 							transColor,
@@ -792,7 +842,7 @@ void ScummEngine_v7::setCursorFromImg(uint img, uint room, uint imgindex) {
 	// be able to see some of those updates (i.e. the loading cursors in
 	// The Dig and The Curse of Monkey Island). This forced screen update
 	// addresses that.
-	_system->updateScreen();
+	remasterUpdateScreen();
 }
 #endif
 

@@ -1929,6 +1929,12 @@ void ScummEngine_v6::restoreBlastObjectRect(Common::Rect r) {
 	for (i = left_strip; i <= right_strip; i++)
 		_gdi->resetBackground(r.top, r.bottom, i);
 
+	// COMI remaster: the object's pixels are gone; forget their marks (see remasterForgetMarks).
+	if (_remasterEnabled) {
+		const int x0 = MAX(0, r.left - 8), x1 = MIN((int)vs->w, r.right + 8);
+		remasterForgetMarks((const byte *)vs->getPixels(x0, r.top), vs->pitch, x1 - x0, r.height());
+	}
+
 	markRectAsDirty(kMainVirtScreen, r, USAGE_BIT_RESTORED);
 }
 
