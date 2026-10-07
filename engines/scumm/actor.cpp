@@ -2536,7 +2536,12 @@ void Actor::drawActorCostume(bool hitTestMode) {
 	prepareDrawActorCostume(bcr);
 
 	// If the actor is partially hidden, redraw it next frame.
-	if (bcr->drawCostume(_vm->_virtscr[kMainVirtScreen], _vm->_gdi->_numStrips, this, _drawToBackBuf) & 1) {
+	_vm->_remasterDrawActor = _number; // COMI remaster: lets the pixel record know which actor drew what
+	if (_vm->_remasterEnabled)
+		_vm->remasterBeginActorDraw(_number);
+	const byte drawResult = bcr->drawCostume(_vm->_virtscr[kMainVirtScreen], _vm->_gdi->_numStrips, this, _drawToBackBuf);
+	_vm->_remasterDrawActor = 0;
+	if (drawResult & 1) {
 		_needRedraw = (_vm->_game.version <= 6);
 
 		if (_vm->_game.heversion >= 62)
@@ -3354,7 +3359,7 @@ void ScummEngine::setTalkingActor(int i) {
 		_system->clearFocusRectangle();
 	} else {
 		// Work out the screen co-ordinates of the actor
-		int x = _actors[i]->getPos().x - (camera._cur.x - (_screenWidth >> 1));
+		int x = _remasterLogicalWidth ? _actors[i]->getPos().x - _virtscr[kMainVirtScreen].xstart : _actors[i]->getPos().x - (camera._cur.x - (_screenWidth >> 1));
 		int y = _actors[i]->_top - (camera._cur.y - (_screenHeight >> 1));
 
 		// Set the focus area to the calculated position

@@ -816,7 +816,10 @@ void ScummEngine::drawStripToScreen(VirtScreen *vs, int x, int width, int top, i
 		mac_drawBufferToScreen((const byte *)src, pitch, x, y, width, height);
 	} else {
 		// Finally blit the whole thing to the screen
-		_system->copyRectToScreen(src, pitch, x, y, width, height);
+		if (_remasterEnabled)
+			remasterBlit((const byte *)src, pitch, x, y, width, height, vs);
+		else
+			_system->copyRectToScreen(src, pitch, x, y, width, height);
 	}
 }
 
@@ -1189,6 +1192,12 @@ void ScummEngine::redrawBGStrip(int start, int num) {
 		room = getResourceAddress(rtRoom, _roomResource);
 
 	_gdi->drawBitmap(room + _IM00_offs, &_virtscr[kMainVirtScreen], s, 0, _roomWidth, _virtscr[kMainVirtScreen].h, s, num, 0);
+
+	// COMI remaster: remember the plain room background of these strips (same buffer columns
+	// drawBitmap just wrote) as reference for telling background, actors and other content apart.
+	// Gdi::drawBitmap writes room strip s at buffer column 8 * s (getBasePtr, no camera offset).
+	if (_remasterEnabled)
+		remasterCaptureRoomStrips(s * 8, num * 8);
 }
 
 void ScummEngine::restoreBackground(Common::Rect rect, byte backColor) {
@@ -1241,6 +1250,10 @@ void ScummEngine::restoreBackground(Common::Rect rect, byte backColor) {
 
 	if (!height)
 		return;
+
+	// COMI remaster: whatever was drawn here is gone; forget its pixel marks (see remasterForgetMarks).
+	if (_remasterEnabled && vs->number == kMainVirtScreen)
+		remasterForgetMarks(screenBuf, vs->pitch, width, height);
 
 	if (vs->hasTwoBuffers && _currentRoom != 0 && isLightOn()) {
 		blit(screenBuf, vs->pitch, vs->getBackPixels(rect.left, rect.top), vs->pitch, width, height, vs->format.bytesPerPixel);
@@ -2368,7 +2381,8 @@ void Gdi::drawBitmap(const byte *ptr, VirtScreen *vs, int x, const int y, const 
 	// It was added as a kind of hack to fix some corner cases, but it compares
 	// the room width to the virtual screen width; but the former should always
 	// be bigger than the latter (except for MM NES, maybe)... strange
-	int limit = MAX(_vm->_roomWidth, (int)vs->w) / 8 - x;
+	// COMI remaster widescreen: the screen can be wider than the room; never draw strips past the room's data.
+	int limit = (_vm->_remasterLogicalWidth ? _vm->_roomWidth : MAX(_vm->_roomWidth, (int)vs->w)) / 8 - x;
 	if (limit > numstrip)
 		limit = numstrip;
 	if (limit > _numStrips - sx)
@@ -2951,6 +2965,8 @@ void Gdi::resetBackground(int top, int bottom, int strip) {
 	backbuff_ptr = (byte *)vs->getBasePtr((strip + vs->xstart/8) * 8, top);
 
 	numLinesToProcess = bottom - top;
+	if (_vm->_remasterEnabled && numLinesToProcess > 0)
+		_vm->remasterForgetMarks(backbuff_ptr, vs->pitch, 8, numLinesToProcess); // COMI remaster: see remasterForgetMarks
 	if (numLinesToProcess) {
 		if (_vm->isLightOn()) {
 			copy8Col(backbuff_ptr, vs->pitch, bgbak_ptr, numLinesToProcess, vs->format.bytesPerPixel);
@@ -4749,7 +4765,10 @@ void ScummEngine::dissolveEffect(int width, int height) {
 				src = ditherVGAtoEGA(pitch, x, y, wd, ht);
 			}
 
-			_system->copyRectToScreen(src, pitch, x, y, wd, ht);
+			if (_remasterEnabled)
+				remasterBlit((const byte *)src, pitch, x, y, wd, ht, nullptr);
+			else
+				_system->copyRectToScreen(src, pitch, x, y, wd, ht);
 		}
 
 		// Test for 1x1 pattern...
@@ -4840,7 +4859,10 @@ void ScummEngine::scrollEffect(int dir) {
 						src = ditherVGAtoEGA(vsPitch, tx, ty, wd, ht);
 					}
 
-					_system->copyRectToScreen(src, vsPitch * m, tx, ty * m, wd, ht * m);
+					if (_remasterEnabled)
+						remasterBlit((const byte *)src, vsPitch * m, tx, ty * m, wd, ht * m, nullptr);
+					else
+						_system->copyRectToScreen(src, vsPitch * m, tx, ty * m, wd, ht * m);
 				}
 			}
 
@@ -4874,7 +4896,10 @@ void ScummEngine::scrollEffect(int dir) {
 						src = ditherVGAtoEGA(vsPitch, tx, ty, wd, ht);
 					}
 
-					_system->copyRectToScreen(src, vsPitch * m, 0, 0, wd * m, ht * m);
+					if (_remasterEnabled)
+						remasterBlit((const byte *)src, vsPitch * m, 0, 0, wd * m, ht * m, nullptr);
+					else
+						_system->copyRectToScreen(src, vsPitch * m, 0, 0, wd * m, ht * m);
 				}
 			}
 
@@ -4911,7 +4936,10 @@ void ScummEngine::scrollEffect(int dir) {
 						src = ditherVGAtoEGA(vsPitch, tx, ty, wd, ht);
 					}
 
-					_system->copyRectToScreen(src, vsPitch * m, tx * m, 0, wd * m, ht * m);
+					if (_remasterEnabled)
+						remasterBlit((const byte *)src, vsPitch * m, tx * m, 0, wd * m, ht * m, nullptr);
+					else
+						_system->copyRectToScreen(src, vsPitch * m, tx * m, 0, wd * m, ht * m);
 				}
 			}
 			waitForTimer(delay, true);
@@ -4947,7 +4975,10 @@ void ScummEngine::scrollEffect(int dir) {
 						src = ditherVGAtoEGA(vsPitch, tx, ty, wd, ht);
 					}
 
-					_system->copyRectToScreen(src, vsPitch * m, 0, 0, wd * m, ht * m);
+					if (_remasterEnabled)
+						remasterBlit((const byte *)src, vsPitch * m, 0, 0, wd * m, ht * m, nullptr);
+					else
+						_system->copyRectToScreen(src, vsPitch * m, 0, 0, wd * m, ht * m);
 				}
 			}
 
@@ -4995,7 +5026,7 @@ void ScummEngine::updateScreenShakeEffect() {
 
 	while (now >= _shakeNextTick) {
 		_shakeFrame = (_shakeFrame + 1) % NUM_SHAKE_POSITIONS;
-		_system->setShakePos(0, -shake_positions[_shakeFrame] * multiplier);
+		_system->setShakePos(0, -shake_positions[_shakeFrame] * multiplier * _remasterScale);
 		// In DOTT (and probably all other imuse games) this runs on the imuse timer which is a PIT 0 Timer at 291.304 Hz.
 		// Apparently it is the same timer setting for all sound drivers although it is set up not in the main executable
 		// but inside each respective ims driver during the driver load/init process. The screen shakes update every 8 ticks.

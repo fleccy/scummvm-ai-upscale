@@ -38,7 +38,7 @@ void ScummEngine::setCameraAtEx(int at) {
 }
 
 void ScummEngine::setCameraAt(int pos_x, int pos_y) {
-	if (camera._mode != kFollowActorCameraMode || ABS(pos_x - camera._cur.x) > (_screenWidth / 2)) {
+	if (camera._mode != kFollowActorCameraMode || ABS(pos_x - camera._cur.x) > (logicalScreenWidth() / 2)) {
 		camera._cur.x = pos_x;
 	}
 	camera._dest.x = pos_x;
@@ -170,7 +170,7 @@ void ScummEngine::cameraMoved() {
 	int screenLeft;
 	if (_game.version >= 7) {
 		clampCameraPos(&camera._cur);
-		assert(camera._cur.x >= (_screenWidth / 2) && camera._cur.y >= (_screenHeight / 2));
+		assert(camera._cur.x >= (logicalScreenWidth() / 2) && camera._cur.y >= (_screenHeight / 2));
 	} else {
 		if (camera._cur.x < (_screenWidth / 2)) {
 			camera._cur.x = (_screenWidth / 2);
@@ -183,7 +183,12 @@ void ScummEngine::cameraMoved() {
 	_screenEndStrip = _screenStartStrip + _gdi->_numStrips - 1;
 
 	_screenTop = camera._cur.y - (_screenHeight / 2);
-	if (_game.version >= 7) {
+	if (_game.version >= 7 && _remasterLogicalWidth) {
+		// Widescreen: the wider view is centred on the camera and kept inside the room.
+		screenLeft = (_roomWidth > _screenWidth) ? CLIP<int>(camera._cur.x - _screenWidth / 2, 0, _roomWidth - _screenWidth) : 0;
+		_screenStartStrip = screenLeft / 8;
+		_screenEndStrip = _screenStartStrip + _gdi->_numStrips - 1;
+	} else if (_game.version >= 7) {
 		screenLeft = camera._cur.x - (_screenWidth / 2);
 	} else {
 		screenLeft = _screenStartStrip * 8;
@@ -224,7 +229,7 @@ void ScummEngine_v7::setCameraAt(int pos_x, int pos_y) {
 
 	camera._dest = camera._cur;
 
-	assert(camera._cur.x >= (_screenWidth / 2) && camera._cur.y >= (_screenHeight / 2));
+	assert(camera._cur.x >= (logicalScreenWidth() / 2) && camera._cur.y >= (_screenHeight / 2));
 
 	if (camera._cur.x != old.x || camera._cur.y != old.y) {
 		if (VAR(VAR_SCROLL_SCRIPT) && _game.version != 8) {
@@ -249,7 +254,7 @@ void ScummEngine_v7::setCameraFollows(Actor *a, bool setCamera) {
 	ax = ABS(a->getPos().x - camera._cur.x);
 	ay = ABS(a->getPos().y - camera._cur.y);
 
-	if (ax > VAR(VAR_CAMERA_THRESHOLD_X) || ay > VAR(VAR_CAMERA_THRESHOLD_Y) || ax > (_screenWidth / 2) || ay > (_screenHeight / 2)) {
+	if (ax > VAR(VAR_CAMERA_THRESHOLD_X) || ay > VAR(VAR_CAMERA_THRESHOLD_Y) || ax > (logicalScreenWidth() / 2) || ay > (_screenHeight / 2)) {
 		setCameraAt(a->getPos().x, a->getPos().y);
 	}
 
@@ -286,7 +291,7 @@ void ScummEngine_v7::moveCamera() {
 		VAR(VAR_CAMERA_DEST_Y) = camera._dest.y = a->getPos().y;
 	}
 
-	assert(camera._cur.x >= (_screenWidth / 2) && camera._cur.y >= (_screenHeight / 2));
+	assert(camera._cur.x >= (logicalScreenWidth() / 2) && camera._cur.y >= (_screenHeight / 2));
 
 	clampCameraPos(&camera._dest);
 

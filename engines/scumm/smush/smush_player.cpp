@@ -24,6 +24,9 @@
 #include "common/system.h"
 #include "common/util.h"
 #include "common/rect.h"
+#include "common/fs.h"
+#include "graphics/surface.h"
+#include "image/png.h"
 
 #include "audio/mixer.h"
 
@@ -375,7 +378,92 @@ bool SmushPlayer::isFastForwardingCurrentFrame() const {
 		_frame < _fastForwardToFrame);
 }
 
+void SmushPlayer::remasterOpenSides(const char *filename) {
+	remasterCloseSides();
+	if (!_vm->_remasterLogicalWidth || !ConfMan.hasKey("remaster_video_sides_path"))
+		return;
+	if (ConfMan.hasKey("remaster_video_sides") && ConfMan.get("remaster_video_sides") == "off")
+		return;
+	Common::String base(filename);
+	const char *slash = strrchr(base.c_str(), '/');
+	if (slash)
+		base = Common::String(slash + 1);
+	base.toUppercase();
+	const char *dot = strrchr(base.c_str(), '.');
+	if (dot)
+		base = Common::String(base.c_str(), dot); // OPENING.SAN -> OPENING.sides
+	Common::FSNode dir(Common::Path(ConfMan.get("remaster_video_sides_path"), Common::Path::kNativeSeparator));
+	Common::FSNode file = dir.getChild(base + ".sides");
+	if (!file.exists())
+		return;
+	Common::SeekableReadStream *st = file.createReadStream();
+	if (!st)
+		return;
+	if (st->readUint32BE() != MKTAG('C', 'M', 'S', 'D') || st->readUint16LE() != 1) {
+		delete st;
+		return;
+	}
+	_remasterSideW = st->readUint16LE();
+	_remasterSideH = st->readUint16LE();
+	st->readUint16LE();
+	const uint32 n = st->readUint32LE();
+	if (_remasterSideW <= 0 || _remasterSideH <= 0 || n > 100000 || _vm->_screenWidth != 640 + 2 * _remasterSideW) {
+		delete st;
+		return;
+	}
+	_remasterSideOff.resize(n + 1);
+	for (uint32 i = 0; i <= n; i++)
+		_remasterSideOff[i] = st->readUint32LE();
+	if (st->err()) {
+		delete st;
+		return;
+	}
+	_remasterSides = st;
+	warning("remaster: widescreen sides for %s (%u frames)", base.c_str(), n);
+}
+
+void SmushPlayer::remasterCloseSides() {
+	delete _remasterSides;
+	_remasterSides = nullptr;
+	_remasterSideOff.clear();
+}
+
+const byte *SmushPlayer::remasterWideFrame(const byte *src, int srcPitch, int width, int height) {
+	// The side files use 0-based frame indices (ffmpeg's numbering). The picture in the buffer was decoded while the
+	// game's frame counter equalled that index (the counter is advanced after the frame is handled), so use it as is;
+	// it is remembered at decode time because the counter runs on while frames without a picture play.
+	if (!_remasterSides || width != 640 || height != _remasterSideH)
+		return nullptr;
+	if (!_vm->_remasterSidesOn)
+		return nullptr; // side art switched off in game (F12 / controller): black bars, toggles live
+	const int idx = _remasterPicFrame;
+	if (idx < 0 || idx + 1 >= (int)_remasterSideOff.size())
+		return nullptr;
+	const uint32 a = _remasterSideOff[idx], b = _remasterSideOff[idx + 1];
+	if (b <= a || b - a > (1u << 22))
+		return nullptr;
+	const int sw = _remasterSideW, W = _vm->_screenWidth;
+	_remasterSideZ.resize(b - a);
+	_remasterSideBuf.resize(2 * sw * height);
+	if (!_remasterSides->seek(a) || _remasterSides->read(_remasterSideZ.data(), b - a) != b - a)
+		return nullptr;
+	unsigned long len = _remasterSideBuf.size();
+	if (!Common::inflateZlib(_remasterSideBuf.data(), &len, _remasterSideZ.data(), b - a) || len != _remasterSideBuf.size())
+		return nullptr;
+	_remasterWideBuf.resize(W * height);
+	const byte *left = _remasterSideBuf.data(), *right = left + sw * height;
+	for (int y = 0; y < height; y++) {
+		byte *d = &_remasterWideBuf[y * W];
+		memcpy(d, left + y * sw, sw);
+		memcpy(d + sw, src + y * srcPitch, 640);
+		memcpy(d + sw + 640, right + y * sw, sw);
+	}
+	return _remasterWideBuf.data();
+}
+
 void SmushPlayer::release() {
+	remasterCloseSides();
+	_vm->remasterVideoTextTarget(nullptr, 0, 0);   // in-game text is marked on the game's screen again
 	_vm->_smushVideoShouldFinish = true;
 
 	for (int i = 0; i < 5; i++) {
@@ -758,7 +846,14 @@ void SmushPlayer::handleTextResource(uint32 subType, int32 subSize, Common::Seek
 		// changes on the fly will be ignored for Smush texts, since our code design does
 		// not permit it and the feature isn't used anyway).
 
-		if (flg & kStyleWordWrap) {
+		// Widescreen remaster: 640-wide videos are decoded into a buffer of their own width, not the screen's.
+		const int textPitch = (_vm->_remasterLogicalWidth && _dst == _specialBuffer) ? _width : -1;
+		if (_vm->_remasterEnabled)   // remaster: record the subtitle's pixels (kept apart from the AI, drawn crisp)
+			_vm->remasterVideoTextTarget(_dst, textPitch > 0 ? textPitch : _vm->_screenWidth, _height);
+		if (_width <= 20 || _height <= 20) {
+			// No video frame decoded yet (the text chunk came first): nothing to draw onto. Without this the
+			// clip rect below would be inverted and trip an assertion.
+		} else if (flg & kStyleWordWrap) {
 			// COMI has to do it all a bit different, of course. SCUMM7 games immediately render the text from here and actually use the clipping data
 			// provided by the text resource. COMI does not render directly, but enqueues a blast string (which is then drawn through the usual main
 			// loop routines). During that process the rect data will get dumped and replaced with the following default values. It's hard to tell
@@ -769,12 +864,12 @@ void SmushPlayer::handleTextResource(uint32 subType, int32 subSize, Common::Seek
 				height = _height - 20;
 			}
 			Common::Rect clipRect(MAX<int>(0, left), MAX<int>(0, top), MIN<int>(left + width, _width), MIN<int>(top + height, _height));
-			sf->drawStringWrap(str, _dst, clipRect, pos_x, pos_y, color, flg);
+			sf->drawStringWrap(str, _dst, clipRect, pos_x, pos_y, color, flg, textPitch);
 		} else {
 			// Similar to the wrapped text, COMI will pass on rect coords here, which will later be lost. Unlike with the wrapped text, it will
 			// finally use the full screen dimenstions. SCUMM7 renders directly from here (see comment above), but also with the full screen.
 			Common::Rect clipRect(0, 0, _width, _height);
-			sf->drawString(str, _dst, clipRect, pos_x, pos_y, color, flg);
+			sf->drawString(str, _dst, clipRect, pos_x, pos_y, color, flg, textPitch);
 		}
 	}
 
@@ -873,6 +968,17 @@ void SmushPlayer::decodeFrameObject(int codec, const uint8 *src, int left, int t
 		_dst = _specialBuffer;
 	} else if (handleGameFrameBufferSelect(codec, width, height)) {
 		// Game-specific buffer selection handled
+	} else if (_vm->_remasterLogicalWidth && width == _vm->_remasterLogicalWidth && height == _vm->_screenHeight && width < _vm->_screenWidth) {
+		// COMI remaster widescreen: the screen is wider than the 640x480 videos. Decode them into a buffer of their
+		// own size (the remaster centres them when presenting); the check below would otherwise drop every frame.
+		const int bufSize = width * height;
+		if (_specialBuffer == nullptr || bufSize > _specialBufferSize) {
+			free(_specialBuffer);
+			_specialBuffer = (byte *)malloc(bufSize);
+			memset(_specialBuffer, 0, bufSize);
+			_specialBufferSize = bufSize;
+		}
+		_dst = _specialBuffer;
 	} else if ((height > _vm->_screenHeight) || (width > _vm->_screenWidth))
 		return;
 	// FT Insane uses smaller frames to draw overlays with moving objects
@@ -881,7 +987,7 @@ void SmushPlayer::decodeFrameObject(int codec, const uint8 *src, int left, int t
 	else if (!_insanity && ((height != _vm->_screenHeight) || (width != _vm->_screenWidth)))
 		return;
 
-	if ((height == 242) && (width == 384)) {
+	if (((height == 242) && (width == 384)) || (_vm->_remasterLogicalWidth && _dst == _specialBuffer && width == _vm->_remasterLogicalWidth)) {
 		_width = width;
 		_height = height;
 	} else if (handleGameDimensionOverride(codec, width, height)) {
@@ -890,6 +996,8 @@ void SmushPlayer::decodeFrameObject(int codec, const uint8 *src, int left, int t
 		_width = _vm->_screenWidth;
 		_height = _vm->_screenHeight;
 	}
+
+	_remasterPicFrame = _frame; // COMI remaster: the picture now in the buffer belongs to this frame (side strips)
 
 	int pitch = _vm->_screenWidth;
 	if (_dst == _specialBuffer)
@@ -1030,6 +1138,8 @@ void SmushPlayer::handleFrame(int32 frameSize, Common::SeekableReadStream &b) {
 	uint8 *audioChunk = nullptr;
 	_skipNext = false;
 	handleGameFrameStart();
+	if (_vm->_remasterEnabled)
+		_vm->remasterVideoTextFrame();
 
 	if (_insanity) {
 		_vm->_insane->procPreRendering(_dst);
@@ -1339,6 +1449,35 @@ void SmushPlayer::updateScreen() {
 void SmushPlayer::handleGameUpdateScreen(const byte *src, int srcPitch, int width, int height) {
 	if (_vm->_macScreen) {
 		_vm->mac_drawBufferToScreen(src, srcPitch, 0, 0, width, height);
+	} else if (_vm->_remasterEnabled) {
+		// Dev tool: remaster_video_frames_dir saves every video frame as it was decoded (before AI upscaling), as
+		// <video>_<frame>.png, e.g. to make offline widescreen side strips. Run with subtitles off to keep text out.
+		if (ConfMan.hasKey("remaster_video_frames_dir")) {
+			Common::FSNode dir(Common::Path(ConfMan.get("remaster_video_frames_dir"), Common::Path::kNativeSeparator));
+			Common::String base = _remasterVideoName;
+			const char *slash = strrchr(base.c_str(), '/');
+			if (slash)
+				base = Common::String(slash + 1);
+			const Common::String name = Common::String::format("%s_%05d.png", base.c_str(), _frame);
+			Graphics::Surface frame;
+			frame.init(width, height, srcPitch, const_cast<byte *>(src), Graphics::PixelFormat::createFormatCLUT8());
+			Common::DumpFile out;
+			if (dir.isDirectory() && out.open(dir.getChild(name).getPath()))
+				Image::writePNG(out, frame, _pal);
+		}
+		_vm->_remasterBlitIsVideo = true;
+		// subtitle marks: only for the buffer they were drawn into (widened: the picture sits after the left side)
+		const bool textSrc = src == _vm->_remasterVidTextBase && srcPitch == _vm->_remasterVidTextPitch;
+		if (const byte *wide = remasterWideFrame(src, srcPitch, width, height)) {
+			_vm->_remasterVidTextShift = textSrc ? _remasterSideW : -1;
+			_vm->remasterBlit(wide, _vm->_screenWidth, 0, 0, _vm->_screenWidth, height, nullptr);
+		} else {
+			_vm->_remasterVidTextShift = textSrc ? 0 : -1;
+			_vm->remasterBlit(src, srcPitch, 0, 0, width, height, nullptr);
+		}
+		_vm->_remasterVidTextShift = -1;
+		_vm->_remasterBlitIsVideo = false;
+		_vm->remasterTick(); // videos run their own loop; keep dev snapshots working
 	} else {
 		_vm->_system->copyRectToScreen(src, srcPitch, 0, 0, width, height);
 	}
@@ -1407,6 +1546,8 @@ void SmushPlayer::unpause() {
 }
 
 void SmushPlayer::play(const char *filename, int32 speed, int32 offset, int32 startFrame) {
+	_remasterVideoName = filename;
+	remasterOpenSides(filename);
 	// Verify the specified file exists
 	ScummFile *file = _vm->instantiateScummFile();
 
@@ -1508,7 +1649,10 @@ void SmushPlayer::play(const char *filename, int32 speed, int32 offset, int32 st
 			_vm->scummLoop_handleSound();
 
 			if (_warpNeeded) {
-				_vm->_system->warpMouse(_vm->_macScreen ? _warpX * 2 : _warpX, _vm->_macScreen ? (_warpY * 2 + 2 * _vm->_macScreenDrawOffset) : _warpY);
+				if (_vm->_macScreen)
+					_vm->_system->warpMouse(_warpX * 2, _warpY * 2 + 2 * _vm->_macScreenDrawOffset);
+				else
+					_vm->remasterWarpMouse(_warpX, _warpY);
 				_warpNeeded = false;
 			}
 		}
@@ -1540,9 +1684,15 @@ void SmushPlayer::play(const char *filename, int32 speed, int32 offset, int32 st
 						}
 					}
 
-					_vm->_system->getPaletteManager()->setPalette(palette + _palDirtyMin * 3, _palDirtyMin, _palDirtyMax - _palDirtyMin + 1);
+					if (_vm->_remasterEnabled)
+						_vm->remasterSetPalette(palette + _palDirtyMin * 3, _palDirtyMin, _palDirtyMax - _palDirtyMin + 1);
+					else
+						_vm->_system->getPaletteManager()->setPalette(palette + _palDirtyMin * 3, _palDirtyMin, _palDirtyMax - _palDirtyMin + 1);
 				} else {
-					_vm->_system->getPaletteManager()->setPalette(_pal + _palDirtyMin * 3, _palDirtyMin, _palDirtyMax - _palDirtyMin + 1);
+					if (_vm->_remasterEnabled)
+						_vm->remasterSetPalette(_pal + _palDirtyMin * 3, _palDirtyMin, _palDirtyMax - _palDirtyMin + 1);
+					else
+						_vm->_system->getPaletteManager()->setPalette(_pal + _palDirtyMin * 3, _palDirtyMin, _palDirtyMax - _palDirtyMin + 1);
 				}
 
 				_palDirtyMax = -1;
@@ -1570,7 +1720,7 @@ void SmushPlayer::play(const char *filename, int32 speed, int32 offset, int32 st
 
 					handleGameUpdateScreen(dst, _width, frameWidth, frameHeight);
 
-					_vm->_system->updateScreen();
+					_vm->remasterUpdateScreen();
 					_updateNeeded = false;
 				}
 			}
@@ -1593,7 +1743,7 @@ void SmushPlayer::play(const char *filename, int32 speed, int32 offset, int32 st
 
 		if (_vm->_macGui) {
 			_vm->_macGui->updateWindowManager();
-			_vm->_system->updateScreen();
+			_vm->remasterUpdateScreen();
 		}
 
 		if (!fastForwarding)

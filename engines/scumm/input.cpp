@@ -115,8 +115,27 @@ void ScummEngine::parseEvent(Common::Event event) {
 	if (_macGui && _macGui->handleEvent(event))
 		return;
 
+	// COMI remaster: with AI upscaling the screen is _remasterScale times the game resolution.
+	if (_remasterScale > 1 || _remasterSide > 0) {
+		// Comparison slider: while Ctrl is held, the mouse moves the divider (in presented game pixels).
+		if (_remasterCompare && event.type == Common::EVENT_MOUSEMOVE && (_system->getEventManager()->getModifierState() & Common::KBD_CTRL))
+			_remasterCompareX = CLIP<int>((event.mouse.x - _remasterSide) / _remasterScale, 0, _screenWidth);
+		event.mouse.x = CLIP<int>((event.mouse.x - _remasterSide) / _remasterScale - remasterShift(), 0, _screenWidth - 1);
+		event.mouse.y = CLIP<int>(event.mouse.y / _remasterScale, 0, _screenHeight - 1);
+	}
+
+	if (_remasterEnabled && _remasterScale > 1 && _remasterMode == kRemasterAI && (event.type == Common::EVENT_WHEELUP || event.type == Common::EVENT_WHEELDOWN) &&
+	    (_system->getEventManager()->getModifierState() & Common::KBD_CTRL)) {
+		remasterStepStrength(event.type == Common::EVENT_WHEELUP ? 10 : -10); // COMI remaster: Ctrl+wheel = AI strength
+		return;
+	}
+
 	switch (event.type) {
 	case Common::EVENT_CUSTOM_ENGINE_ACTION_START:
+		if (event.customType == kScummActionRemasterHotspotNext)
+			remasterHotspotCycle(1); // COMI remaster: D-pad right
+		else if (event.customType == kScummActionRemasterHotspotPrev)
+			remasterHotspotCycle(-1);
 		if (event.customType >= kScummActionCount) {
 			debugC(DEBUG_GENERAL, "customType >= kScummActionCount (%d)", event.customType);
 		} else {
@@ -133,6 +152,14 @@ void ScummEngine::parseEvent(Common::Event event) {
 		break;
 
 
+	case Common::EVENT_JOYAXIS_MOTION:
+		// COMI remaster: right stick walks Guybrush directly.
+		if (event.joystick.axis == Common::JOYSTICK_AXIS_RIGHT_STICK_X)
+			_remasterStickX = event.joystick.position;
+		else if (event.joystick.axis == Common::JOYSTICK_AXIS_RIGHT_STICK_Y)
+			_remasterStickY = event.joystick.position;
+		break;
+
 	case Common::EVENT_KEYDOWN:
 		if (event.kbd.keycode >= Common::KEYCODE_0 && event.kbd.keycode <= Common::KEYCODE_9 &&
 			((event.kbd.hasFlags(Common::KBD_ALT) && canSaveGameStateCurrently()) ||
@@ -146,7 +173,38 @@ void ScummEngine::parseEvent(Common::Event event) {
 			_saveLoadDescription = Common::String::format("Quicksave %d", _saveLoadSlot);
 			_saveLoadFlag = (event.kbd.hasFlags(Common::KBD_ALT)) ? 1 : 2;
 			_saveTemporaryState = false;
-		} else if (event.kbd.hasFlags(Common::KBD_CTRL) && event.kbd.keycode == Common::KEYCODE_f) {
+		} else if (event.kbd.keycode == Common::KEYCODE_F12 && event.kbd.hasFlags(Common::KBD_CTRL) && _remasterEnabled) {
+			remasterReport(); // COMI remaster: problem report (screenshots + pre-filled GitHub issue)
+		} else if (event.kbd.keycode == Common::KEYCODE_F12 && event.kbd.hasFlags(0) && (_remasterSide > 0 || _remasterLogicalWidth)) {
+			remasterToggleAmbient(); // COMI remaster: ambient or black side panels in 16:9 mode
+		} else if (event.kbd.keycode == Common::KEYCODE_F10 && event.kbd.hasFlags(0) && remasterDeferred()) {
+			remasterCycleMode(); // COMI remaster: AI HD / original / VGA / EGA / Amiga / modern pixel
+		} else if (event.kbd.keycode == Common::KEYCODE_F9 && event.kbd.hasFlags(Common::KBD_CTRL | Common::KBD_SHIFT) && _remasterEnabled && _remasterScale > 1) {
+			// COMI remaster: smooth scrolling on/off (experimental)
+			const bool on = !(ConfMan.hasKey("remaster_smooth_scroll") && ConfMan.getBool("remaster_smooth_scroll"));
+			ConfMan.setBool("remaster_smooth_scroll", on);
+			ConfMan.flushToDisk();
+			_system->displayMessageOnOSD(Common::U32String(on ? "Smooth scrolling on (experimental, AI HD with HD characters only)" : "Smooth scrolling off"));
+		} else if (event.kbd.keycode == Common::KEYCODE_F9 && event.kbd.hasFlags(Common::KBD_SHIFT) && _remasterEnabled && _remasterScale > 1) {
+			remasterPhoto(); // COMI remaster: photo mode
+		} else if (event.kbd.keycode == Common::KEYCODE_F9 && event.kbd.hasFlags(Common::KBD_CTRL) && _remasterEnabled && _remasterAI) {
+			remasterCycleBackend(); // COMI remaster: switch upscaler (AI / FSR / ...)
+		} else if (event.kbd.keycode == Common::KEYCODE_F10 && event.kbd.hasFlags(Common::KBD_CTRL) && remasterDeferred()) {
+			remasterToggleCrt();
+		} else if (event.kbd.hasFlags(Common::KBD_CTRL) && _remasterEnabled && _remasterScale > 1 && _remasterMode == kRemasterAI &&
+		           (event.kbd.keycode == Common::KEYCODE_PLUS || event.kbd.keycode == Common::KEYCODE_EQUALS || event.kbd.keycode == Common::KEYCODE_KP_PLUS ||
+		            event.kbd.keycode == Common::KEYCODE_MINUS || event.kbd.keycode == Common::KEYCODE_KP_MINUS)) {
+			// COMI remaster: AI strength in 10 % steps
+			const bool up = event.kbd.keycode == Common::KEYCODE_PLUS || event.kbd.keycode == Common::KEYCODE_EQUALS || event.kbd.keycode == Common::KEYCODE_KP_PLUS;
+			remasterStepStrength(up ? 10 : -10);
+		} else if (event.kbd.keycode == Common::KEYCODE_F11 && event.kbd.hasFlags(Common::KBD_CTRL) && _remasterEnabled && _remasterScale > 1) {
+			// COMI remaster: comparison slider (current display mode left; original pixels, AMD FSR or the standard AI right)
+			remasterCompareCycle();
+		} else if (event.kbd.keycode == Common::KEYCODE_F11 && event.kbd.hasFlags(Common::KBD_SHIFT) && _remasterProtect) {
+			remasterToggleGrain(); // COMI remaster: grain guard on/off
+		} else if (event.kbd.keycode == Common::KEYCODE_F11 && event.kbd.hasFlags(0) && remasterDeferred()) {
+			remasterToggleAI(); // COMI remaster: real-time AI upscaling on/off (F11 is unused by COMI and ScummVM)
+} else if (event.kbd.hasFlags(Common::KBD_CTRL) && event.kbd.keycode == Common::KEYCODE_f) {
 			_fastMode ^= 1;
 		} else if (event.kbd.hasFlags(Common::KBD_CTRL) && event.kbd.keycode == Common::KEYCODE_g) {
 			_fastMode ^= 2;

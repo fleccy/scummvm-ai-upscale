@@ -1,0 +1,6 @@
+-r cloud.in
+torch==2.9.1+cu128
+diffusers
+transformers
+accelerate
+safetensors

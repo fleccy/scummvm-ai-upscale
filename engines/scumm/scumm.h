@@ -27,6 +27,7 @@
 #include "common/endian.h"
 #include "common/events.h"
 #include "common/file.h"
+#include "common/hashmap.h"
 #include "common/savefile.h"
 #include "common/keyboard.h"
 #include "common/mutex.h"
@@ -501,6 +502,9 @@ enum ScummAction {
 	kScummActionInsaneCheat,
 	kScummActionInsaneBack,
 	kScummActionInsaneSkip,
+
+	kScummActionRemasterHotspotNext,
+	kScummActionRemasterHotspotPrev,
 
 	kScummActionCount
 };
@@ -1328,6 +1332,380 @@ protected:
 	virtual int getActorFromPos(int x, int y);
 
 public:
+	// ── COMI remaster (remaster_render.cpp, remaster_dump.cpp) ─────────────────────────────────────
+	// Enabled with the config key remaster_path. The game keeps its 8-bit pipeline; the screen is RGB and
+	// every 8-bit blit goes through remasterBlit(), which converts with the palette or, in rooms that have
+	// remaster art (<remaster_path>/rooms/NNNN/background.png), composes the remaster picture.
+	bool _remasterEnabled = false;
+	Graphics::PixelFormat _remasterFormat;
+	byte _remasterPal[3 * 256] = {};          // palette the screen is shown with (what setPalette would get)
+	uint32 _remasterLut[256] = {};            // _remasterPal in _remasterFormat
+	byte *_remasterScreen8 = nullptr;         // 8-bit mirror of the screen, for re-presenting on palette changes
+	uint32 *_remasterRgb = nullptr;           // last presented frame (for snapshots)
+	void remasterInitGraphics(int w, int h);
+	void remasterSetPalette(const byte *colors, uint first, uint num);
+	void remasterBlit(const byte *src, int pitch, int x, int y, int w, int h, VirtScreen *vs);
+	void remasterTick();
+	// Real-time AI upscaling (remaster_ai.cpp, config remaster_ai_model): the screen is _remasterScale times
+	// the game resolution; remasterBlit only updates the game-resolution frame and remasterUpdateScreen()
+	// (used instead of _system->updateScreen() everywhere in the engine) upscales it once per presented frame.
+	int _remasterScale = 1;
+	class RemasterAI *_remasterAI = nullptr;
+	// HD backgrounds (remaster_hd_backgrounds): the room background is upscaled in column tiles with a heavier model
+	// (remaster_bg_model, default realesrgan-x4plus-anime) on a worker thread and used wherever the screen shows
+	// untouched background in exactly the colours it was made from; everything else keeps the real-time AI.
+	class RemasterAI *_remasterBgAI = nullptr;
+	int _remasterBgScale = 4;
+	bool _remasterHDBgOn = true;
+	struct RemasterBgTile {
+		int x0 = 0, w = 0;                 // main virtual screen buffer columns
+		uint32 hash = 0;                   // of the colours the HD version was made from (0 = none yet)
+		uint32 pendHash = 0, pendSince = 0, changedSince = 0;
+		Common::Array<uint32> src;         // w x h colours the HD version was made from
+		Common::Array<uint32> hd;          // (w*S) x (h*S)
+		class RemasterAIJob *job = nullptr;
+		Common::Array<uint32> jobSrc;      // the job's input (with context columns)
+		int jobX0 = 0, jobW = 0;
+		uint32 jobHash = 0;
+		int fade = 0;                      // 0..16, cross-fade from the real-time AI when a new HD version arrives
+		uint32 cacheMiss = 0;              // hash last looked up in the disk cache without success
+		bool incomplete = false;           // none of its columns are drawn yet (nothing to process)
+		int hx0 = 0, hw = 0;               // columns covered by hd/src (only the drawn part of the tile)
+		int jobCx0 = 0, jobCw = 0;         // columns the running job will cover
+		int jobs = 0;                      // jobs started in this room; a tile that keeps changing stops at 2
+	};
+	Common::Array<RemasterBgTile> _remasterBgTiles;
+	int _remasterHDBgRoom = -1, _remasterBgPitch = 0, _remasterBgH = 0, _remasterBgNext = 0;
+	void remasterBgClear();
+	void remasterBgUpdate();
+	void remasterHDBackground();
+	uint32 _remasterBgRoomSince = 0;
+	Common::String remasterBgCacheFile(int x0, int w, uint32 hash) const;
+	bool remasterBgCacheLoad(RemasterBgTile &t, int x0, int w, uint32 hash);
+	void remasterBgCacheSave(const RemasterBgTile &t);
+	Common::Array<byte> _remasterBgW8;
+	Common::Array<int32> _remasterBgTileOf, _remasterBgBx, _remasterBgBy;
+	double _remasterHDBgMs = 0;
+	// Frame-time governor: per room, step down (1: AI refreshed every other frame, 2: + HD backgrounds off, 3: + HD
+	// characters off) when the remaster work keeps exceeding the budget, so heavy scenes (the cannon battle) stay playable.
+	int _remasterGovRoom = -1, _remasterGovLevel = 0, _remasterGovOver = 0, _remasterGovSkip = 0;
+	uint32 _remasterGovSince = 0, _remasterGovHist = 0;
+	void remasterGovernorFrame(bool late);
+	void remasterCycleBackend();
+	// Comparison slider (Ctrl+F11 cycles): right of the divider the original pixels, AMD FSR or the standard AI
+	int _remasterCompareWith = 0;            // 0 original pixels, 1 AMD FSR, 2 standard AI (ncnn)
+	class RemasterAI *_remasterCompareAI = nullptr;
+	Common::Array<uint32> _remasterCompareIn, _remasterCompareOut;
+	void remasterCompareCycle();
+	// Smooth scrolling (remaster_smooth_scroll): between game frames the camera glides from its last position to the
+	// new one on every screen refresh. Frames are kept as composed; the strip that comes into view is taken from the
+	// previous frame.
+	void remasterSmoothNewFrame();
+	bool remasterSmoothPresent();
+	void remasterSmoothCheckpoint(const char *where);
+	void remasterSmoothGap(const char *where);
+	bool _remasterSmDebug = false;
+	uint32 _remasterSmLastShow = 0;
+	const char *_remasterSmLastWhere = "";
+	// Smooth scrolling keeps the followed character and text where they are on screen while the scenery glides:
+	// _remasterSmClean is the current frame with them replaced by the room's HD background, _remasterSmFix their
+	// coverage (0-255, output pixels) in the current frame.
+	void remasterSmoothBuildLayers();
+	bool remasterBgPlate(int r, int c, int &tile, int &tx, int &ty);
+	Common::Array<uint32> _remasterSmClean;
+	Common::Array<byte> _remasterSmFix, _remasterSmEgoAlpha;
+	bool _remasterSmFixOn = false;
+	int _remasterSmEgoLeft = INT_MIN;   // the followed character's screen x in the previous frame (game pixels)
+	void remasterSmoothCompose(int offset);
+	void remasterSmoothCapture(const uint32 *frame);
+	Common::Array<uint32> _remasterSmCur, _remasterSmPrev, _remasterSmOut;
+	int _remasterSmXs = 0, _remasterSmRoom = -1, _remasterSmDx = 0, _remasterSmLastOffset = 0;
+	uint32 _remasterSmT0 = 0, _remasterSmDur = 83, _remasterSmLastFrame = 0, _remasterSmCapLast = 0;
+	bool _remasterSmActive = false, _remasterSmOn = false;
+	Common::DumpFile *_remasterSmCap = nullptr;
+	uint32 _remasterSmCapUntil = 0;
+	int _remasterSmStart = 0, _remasterSmTarget = 0, _remasterSmShownCam = 0;   // glide in output pixels
+	bool _remasterSmShownValid = false;
+	uint32 _remasterSmPeriod = 83;   // the game's frame period (waitForTimer)
+	uint32 _remasterSmLastMove = 0, _remasterSmMoveGap = 83;   // time between camera moves
+	uint32 _remasterSmCapFrames = 0;
+	const uint32 *_remasterSmShown = nullptr;   // the picture last presented
+	// Photo mode (Shift+F9): the frame as shown, plus the room upscaled 4x by the heavy network on a worker thread.
+	void remasterPhoto();
+	void remasterPhotoPoll();
+	class RemasterAIJob *_remasterPhotoJob = nullptr;
+	int _remasterPhotoW = 0, _remasterPhotoH = 0, _remasterPhotoScale = 0;
+	Common::String _remasterPhotoFile;
+	void remasterBackendAnnounce();
+	Common::String _remasterBackendShown;   // upscaler name last shown (TensorRT changes its name when ready)
+	uint32 _remasterGovWork = 0;
+	bool _remasterGovLight = false;   // Ultra fell back to the standard network in this room
+	int _remasterLiveSeenRoom = -1;
+	uint32 _remasterLiveRoomSince = 0;
+	byte _remasterLiveScenery[256] = {0};
+	Common::HashMap<int, Common::Array<bool> > _remasterLiveColours;   // per room: palette indices of the live edge
+	Common::HashMap<int, uint32> _remasterLiveLearnUntil;   // remaster work (ms) since the last game frame
+	// Palette cycling (water, torches): per palette index, when its colour last changed and how often recently.
+	uint32 _remasterPalChangeT[256] = {0};
+	uint8 _remasterPalChangeN[256] = {0};
+	bool remasterIndexCycles(int i) const;
+	bool _remasterCompare = false;   // Ctrl+F11 comparison slider
+	int _remasterCompareX = 0;       // divider, presented game pixels
+	void remasterCompareOverlay();
+	void remasterUpdateCheckStart();   // remaster_update.cpp: daily "new version available" notice
+	void remasterUpdateCheckPoll();
+	void remasterUpdateCheckStop();
+	int _remasterAIStrength = 100;    // remaster_ai_strength: 0..100 % blend of the AI with a plain smooth upscale
+	void remasterApplyStrength();
+	void remasterStepStrength(int delta);
+	int _remasterGrainRoomFrames = 0;
+	uint32 *_remasterBig = nullptr;          // upscaled frame (_screenWidth * _remasterScale wide)
+	bool _remasterFrameDirty = false;
+	double _remasterAIMs = 0;
+	int _remasterAIFrames = 0;
+	void remasterUpdateScreen();
+	void remasterWarpMouse(int x, int y) { _system->warpMouse((x + remasterShift()) * _remasterScale + _remasterSide, y * _remasterScale); }
+	// 16:9 output (config remaster_widescreen=ambient): the picture is centred with _remasterSide pixels of
+	// side panel on each side, filled by remasterAmbientSides() (F12 toggles ambient/black).
+	int _remasterSide = 0;
+	// True widescreen (remaster_widescreen=wide): the screen is 848 wide while the camera keeps COMI's 640 logic.
+	// Rooms wider than the screen show more of the room; narrower rooms are centred (_remasterRoomOffset).
+	int _remasterLogicalWidth = 0;            // 0 = same as _screenWidth
+	// Width text may use: in widescreen narrow rooms only the room (drawn at the left, centred later) is visible.
+	int remasterTextWidth() const {
+		// Rooms of (almost) no width exist between scenes (e.g. while intro videos play): keep the original 640 then.
+		if (!_remasterLogicalWidth)
+			return _screenWidth;
+		if (_roomWidth < 320)
+			return _remasterLogicalWidth;
+		return MAX(320, _screenWidth - 2 * remasterRoomOffset());
+	}
+	int logicalScreenWidth() const { return _remasterLogicalWidth ? _remasterLogicalWidth : _screenWidth; }
+	bool _remasterVideoShown = false;
+	bool _remasterBlitIsVideo = false;        // set by the SMUSH player around its frame blit         // last main output came from a video (centred 640-wide frames)
+	int remasterMargin() const {
+		if (!_remasterLogicalWidth)
+			return 0;
+		if (_remasterVideoShown)
+			return _remasterVideoFull ? 0 : (_screenWidth - 640) / 2;
+		return remasterSingleScreenRoom() ? (_screenWidth - _remasterLogicalWidth) / 2 : remasterRoomOffset();
+	}
+	// Rooms wider than the screen that the game never scrolls but cuts between 640-wide pictures (the banjo duel:
+	// the pirate on one half, Guybrush on the other). The view shows exactly the game's own picture, centred, with
+	// side panels; remaster_single_screen_rooms overrides the list.
+	bool remasterSingleScreenRoom() const;
+	bool remasterSingleScreenRoomParse() const;
+	mutable int _remasterSingleRoomCached = -1;
+	mutable bool _remasterSingleRoomResult = false;
+	int remasterViewSrcX() const;   // first buffer column of the shown picture (single-screen rooms), else 0
+	int remasterShift() const { return remasterMargin() - remasterViewSrcX(); }   // presented x = buffer x + shift
+	bool _remasterVideoFull = false;      // the video frame came with widescreen sides (full screen width)
+	void remasterFillMargins();
+	void remasterCentreView();
+	// Widescreen side art for narrow rooms (remaster_sides_path/NNNN.png: the room extended to 848 wide).
+	Graphics::Surface _remasterSides;
+	int _remasterSidesRoom = -1;
+	int _remasterEdgeVis[2] = {256, 256};     // edge guard: side art visibility (0..256), left/right
+	int _remasterEdgeHold[2] = {0, 0};
+	int _remasterEdgeRoom = -1;
+	int _remasterDrawActor = 0;                // actor currently being drawn (edge guard)
+	byte _remasterEdgeActor[2][256] = {};     // actors seen in the outermost room columns, left/right
+	bool _remasterEdgeAnimating = false;
+	bool _remasterSidesOn = true;            // F12 cycle, remembered as remaster_side_art
+	bool remasterLoadSides();
+	bool remasterEdgeStrictRoom() const;
+	Common::Array<uint32> _remasterView;
+	Common::Array<byte> _remasterViewProtect;
+	int remasterRoomOffset() const { return (_remasterLogicalWidth && _roomWidth >= 320 && _roomWidth < _screenWidth) ? (_screenWidth - _roomWidth) / 2 : (_remasterLogicalWidth && _roomWidth < 320 ? (_screenWidth - _remasterLogicalWidth) / 2 : 0); }
+	int _remasterOutW = 0, _remasterOutH = 0;
+	uint32 *_remasterOut = nullptr;          // composed output frame when presenting is deferred
+	bool _remasterAmbientOn = true;
+	bool remasterDeferred() const { return _remasterScale > 1 || _remasterSide > 0; }
+	void remasterAmbientSides();
+	void remasterToggleAmbient();
+	void remasterUpscaleFrame();
+	bool _remasterAIOn = true;               // F11, remembered as remaster_ai_enabled
+	// Display modes (F10 cycles, remembered as remaster_display_mode): AI HD, original pixels, and calculated
+	// retro looks. Ctrl+F10 toggles a CRT scanline overlay (remaster_crt).
+	// kRemasterClassic (experimental, opt-in with remaster_display_mode=6, not in the F10 cycle): see remasterClassic.
+	enum RemasterMode { kRemasterAI, kRemasterOriginal, kRemasterVGA, kRemasterEGA, kRemasterAmiga, kRemasterModern, kRemasterClassic, kRemasterModeCount };
+	void remasterClassic();
+	int remasterClassicRows() const { return _screenHeight * 200 / 480; }   // 200 low-res rows for the 480-line frame
+	int _remasterMode = kRemasterAI;
+	bool _remasterCrt = false;
+	bool _remasterPalDirty = true;            // retro palettes/lookups must be rebuilt
+	byte _remasterAmigaPal[32 * 3] = {};
+	class RemasterColorMap *_remasterVgaMap = nullptr, *_remasterAmigaMap = nullptr;   // exact nearest colour (remaster_palette.h)
+	const byte *_remasterProtectFull = nullptr;   // this present's pixel kinds before centring (text = 3)
+	void remasterCycleMode();
+	void remasterReport();
+	// Controller: right stick walks the ego actor directly; D-pad left/right moves the cursor between hotspots.
+	int16 _remasterStickX = 0, _remasterStickY = 0;
+	bool _remasterStickWalking = false;
+	int _remasterStickFrames = 0;
+	int _remasterStickTX = 0, _remasterStickTY = 0;
+	float _remasterStickDirX = 0, _remasterStickDirY = 0;
+	int _remasterStickStuck = 0;
+	Common::Point _remasterStickLastPos;
+	void remasterPadWalk();
+	void remasterHotspotCycle(int dir);
+	bool remasterAICursor(const byte *src, int w, int h, byte trans, Common::Array<uint32> &out, uint32 &key);
+	bool _remasterCursorRGB = false;
+	Common::Array<uint32> _remasterAIOut, _remasterAIPrev;   // incremental AI: last pure output and its input
+	int _remasterAIPartial = 0, _remasterAISkipped = 0;
+	int _remasterAIPrevXs = 0, _remasterAIPrevTop = 0, _remasterAIPrevRoom = -1, _remasterAIScrolls = 0;   // scroll-aware reuse
+	int _remasterAISettle = 0;              // frames of stillness left before a full AI refresh
+	bool remasterAIIncremental(double *ms);
+	int _remasterGrainRoom = -1;
+	bool _remasterGrainScene = false;
+	int _remasterReportRequest = 0;
+	int _remasterSaveRequest = 0;
+	int _remasterPadRequest = 0;
+	// HD actors: costume cels recorded at full source size and composited at output resolution after the AI.
+	struct RemasterCel {
+		int actor;
+		uint32 seq;
+		int w, h;
+		Common::Rect rect;          // screen rectangle at game resolution (unclipped)
+		bool mirror;
+		Common::Array<int16> px;    // palette index, -1 transparent, -2 shadow (left to the game's render)
+	};
+	Common::Array<RemasterCel> _remasterCels;
+	uint32 _remasterCelSeq = 0;
+	int _remasterCelRoom = -1;
+	bool _remasterHDActors = true;  // remaster_hd_actors
+	double _remasterHDMs = 0;
+	void remasterRecordCel(const byte *src, int w, int h, byte mask, byte shr, const uint16 *palette, byte shadowMode,
+		bool mirror, const Common::Rect &rect, int xOff);
+	void remasterBeginActorDraw(int actor);
+	void remasterHDActors();
+	bool remasterSideArtShown();
+	bool remasterLiveEdgeRoom() const;
+	void remasterLiveEdges(int m, int contentW);
+	int _remasterLiveRoom = -1, _remasterLiveFrames = 0;
+	Common::Array<float> _remasterLiveMotion;
+	Common::Array<uint8> _remasterLivePrev;
+	uint32 _remasterCelActor[256] = {};
+	uint32 _remasterCelFrame = 1;
+	byte *_remasterActorOwner = nullptr;       // per buffer offset: actor that drew the costume pixel
+	byte *_remasterOwner = nullptr;            // per screen pixel (game resolution): owning actor of a costume pixel
+	Common::Array<byte> _remasterViewOwner;
+	struct RemasterCelHD {
+		int w, h;
+		Common::Array<uint32> rgba;   // AI-upscaled cel (x scale), R,G,B,A bytes
+		// last resampling to on-screen size (premultiplied R,G,B,A bytes), reused while the actor keeps its scale
+		mutable int rsW = 0, rsH = 0;
+		mutable bool rsMirror = false;
+		mutable Common::Array<uint8> rs;
+		mutable Common::Array<float> rsCov;   // coverage per game pixel of that resampling
+		mutable uint32 lastUse = 0;
+		size_t bytes() const { return rgba.size() * 4 + rs.size() + rsCov.size() * 4; }
+	};
+	void remasterCelCacheTrim();
+	uint32 _remasterCelTrimTick = 0;   // keeps the cache within remaster_hd_actor_cache_mb (least recently used go first)
+	Common::HashMap<uint32, RemasterCelHD> _remasterCelCache;
+	const RemasterCelHD *remasterCelHD(const RemasterCel &c);
+	// HD characters refined by the heavy network (the HD background one) on a worker thread, one cel at a time;
+	// the cel shows the real-time network's version until its refined version is ready.
+	struct RemasterCelPending { uint32 key; int w, h; Common::Array<uint32> rgb; Common::Array<uint8> a; };
+	Common::Array<RemasterCelPending> _remasterCelQueue;
+	RemasterCelPending _remasterCelJobCel;
+	class RemasterAIJob *_remasterCelJob = nullptr;
+	void remasterCelRefinePoll();
+	int _remasterCelRefined = 0;
+	int _remasterCelCooldown = 0;
+	uint32 _remasterVideoFrames = 0;   // cutscene frames drawn (timing tests)
+	static void remasterCelAlpha(const Common::Array<uint8> &a, int cw, int ch, int S, uint32 *rgba);
+	void remasterSharpText();
+	bool _remasterSharpText = false;          // remaster_sharp_text (default off): text drawn with Scale2x/3x edges instead of plain blocks
+	static void remasterScaleCursor(const byte *src, int w, int h, int scale, Common::Array<byte> &out);
+	void remasterShowHelpOnce();
+	int _remasterHelpFrames = 0;
+	void remasterToggleCrt();
+	void remasterSetMode(int mode, bool announce);
+	void remasterRetro();
+	void remasterCrtOverlay();	void remasterToggleAI();
+	// Grain guard (remaster_grain_guard, Shift+F11): grainy/dithered areas get a softened normal upscale instead
+	// of the AI (which sharpens grain into speckle). _remasterProtect marks screen pixels that always keep the
+	// AI: actors and anything that is not plain room background (text, verbs, objects).
+	bool _remasterGrainOn = true;
+	byte *_remasterProtect = nullptr;
+	double _remasterGrainMs = 0;
+	void remasterToggleGrain();
+	void remasterGrainGuard();
+	bool remasterAIOffInRoom() const;
+	// Room art
+	Graphics::Surface _remasterBg;
+	int _remasterBgRoom = -1;
+	bool _remasterBgValid = false;
+	bool remasterRoomActive();
+	// Plain room background as drawn by redrawBGStrip, keyed by main virtual screen buffer offset.
+	byte *_remasterRoomBg = nullptr;
+	byte *_remasterRoomBgValid = nullptr;
+	int _remasterRoomBgSize = 0;
+	int _remasterRoomBgRoom = -1;
+	void remasterCaptureRoomStrips(int firstCol, int numCols);
+	// Pixels written by the 8-bit costume renderers (byleRLEDecode, drawBomp), keyed by buffer offset:
+	// written value, value underneath, kind (1 = costume, 2 = shadow). An entry only counts while the
+	// screen still holds exactly the written value, so entries expire by themselves.
+	byte *_remasterActorValue = nullptr;
+	byte *_remasterActorUnder = nullptr;
+	byte *_remasterActorKind = nullptr;
+	int _remasterActorSize = 0;
+	int _remasterActorRoom = -1;
+	void hdNoteActorPixel(const byte *dst, byte under, byte value, bool shadow);
+	void remasterForgetMarks(const byte *dst, int pitch, int w, int h); // background restored: drop pixel marks
+	// Settings with performance mode applied in one place (performance mode turns HD characters and the grain guard
+	// off whatever their own settings say; Shift+F11 still toggles the grain guard live).
+	static bool remasterPerformanceMode();
+	static bool remasterGrainGuardSetting();
+	static bool remasterHDActorsSetting();
+	void remasterNoteTextPixel(const byte *dst, byte under);   // NUT text glyphs (kind 3) and the pixel they cover
+	// Readable text: the AI and the retro modes work on the frame without text (each glyph pixel replaced by the
+	// scene pixel it covers, recorded when the glyph was drawn); the text is laid over the finished picture at output
+	// resolution by remasterTextOverlay, so no upscaled or averaged copy of the letters is left around them.
+	Common::Array<uint32> _remasterClean, _remasterViewClean;   // text-free frame (game resolution); centred copy
+	Common::Array<byte> _remasterTextUnder;                     // per screen pixel: the palette index under a glyph
+	Common::Array<byte> _remasterTextUnderKind;                 // ... and its pixel kind (0 room background, 1 other)
+	Common::Array<byte> _remasterCleanProtect, _remasterViewCleanProtect;   // pixel kinds of the text-free frame
+	void remasterCleanRect(int x0, int y0, int x1, int y1);
+	// Cutscene subtitles are drawn into the video's own buffer: their glyph pixels are recorded per video frame
+	// (generation << 16 | glyph value << 8 | pixel under it) and become text marks when the frame is blitted.
+	const byte *_remasterVidTextBase = nullptr;
+	int _remasterVidTextPitch = 0, _remasterVidTextH = 0, _remasterVidTextShift = -1;
+	uint16 _remasterVidTextGen = 1;
+	Common::Array<uint32> _remasterVidText;
+	void remasterVideoTextTarget(const byte *base, int pitch, int h);   // SMUSH: subtitles are drawn into base next
+	void remasterVideoTextFrame() { if (++_remasterVidTextGen == 0) _remasterVidTextGen = 1; }   // SMUSH: a new frame
+	void remasterTextOverlay();
+	bool remasterSmoothTextOverlay();   // AI HD: the game's glyphs with smooth, anti-aliased outlines
+	bool _remasterSmoothText = true;    // remaster_smooth_text (default on, AI HD only; off = pixel letters)
+	void remasterNotePixel(const byte *dst, byte under, byte value, byte kind);
+	byte remasterActorKind(int offset, byte current, byte *under = nullptr) const {
+		if (!_remasterActorKind || _remasterActorRoom != _currentRoom || offset < 0 || offset >= _remasterActorSize)
+			return 0;
+		if (!_remasterActorKind[offset] || _remasterActorValue[offset] != current)
+			return 0;
+		if (under)
+			*under = _remasterActorUnder[offset];
+		return _remasterActorKind[offset];
+	}
+	// Dev tools: per-room data dump and frame snapshots into remaster_dump_dir.
+	void remasterDumpRoomTick();
+	// Side-art generation (remaster_extract_dir): saves the room's background from the player's own copy, then quits.
+	void remasterExtractTick();
+	int _remasterExtractRoom = -1;
+	uint32 _remasterExtractSince = 0;
+	int _remasterVideoRequestN = 0, _remasterVideoRequestStart = 0; // dev: video.request
+	Common::String _remasterVideoRequest;
+	int _remasterSidesFade = 256;   // side art brightness following palette fades (0..256)
+	int _remasterSayRequest = 0;   // dev: pad.request "<n> say <line>" (subtitle tests)
+	int _remasterDumpRoom = -1;
+	int _remasterDumpFrames = 0;
+	bool _remasterDumpDone = false;
+	int _remasterSnapRoom = -1;
+	int _remasterSnapFrames = 0;
+	int _remasterSnapRequest = 0;
 	/* Actor talking stuff */
 	byte _actorToPrintStrFor = 0, _V1TalkingActor = 0;
 	int _sentenceNum = 0;

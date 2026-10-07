@@ -25,6 +25,7 @@
 #include "common/util.h"
 #include "common/list.h"
 #include "common/rect.h"
+#include "common/stream.h"
 #include "scumm/charset_v7.h"
 
 namespace Audio {
@@ -286,6 +287,17 @@ protected:
 
 	int _origPitch, _origNumStrips;
 	bool _paused;
+	Common::String _remasterVideoName; // COMI remaster: current video (frame dump names)
+	// COMI remaster: widescreen side strips for this video (remaster_video_sides_path/<NAME>.sides), see
+	// dists/remaster/video-sides. Palette indices, so they follow the video's own palette fades.
+	Common::SeekableReadStream *_remasterSides = nullptr;
+	Common::Array<uint32> _remasterSideOff;
+	int _remasterSideW = 0, _remasterSideH = 0;
+	int _remasterPicFrame = -1;
+	Common::Array<byte> _remasterSideBuf, _remasterWideBuf, _remasterSideZ;
+	void remasterOpenSides(const char *filename);
+	void remasterCloseSides();
+	const byte *remasterWideFrame(const byte *src, int srcPitch, int width, int height);
 	uint32 _pauseStartTime;
 	uint32 _pauseTime;
 	int16 _curVideoFlags = 0;

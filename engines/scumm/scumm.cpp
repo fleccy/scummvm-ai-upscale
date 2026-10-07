@@ -45,6 +45,7 @@
 #include "scumm/debugger.h"
 #include "scumm/detection_tables.h"
 #include "scumm/dialogs.h"
+#include "scumm/remaster_ai.h"
 #include "scumm/file.h"
 #include "scumm/file_nes.h"
 #include "scumm/imuse/imuse.h"
@@ -409,6 +410,12 @@ ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
 		// 640x480, too.
 		_screenWidth = 640;
 		_screenHeight = 480;
+		// COMI remaster: true widescreen. 848 x 480 is about 16:9 and a multiple of 8 (strips); at 3x it is
+		// 2544 x 1440, which fits a 1440p screen. The camera keeps the original 640 logic (logicalScreenWidth()).
+		if (_game.version == 8 && ConfMan.hasKey("remaster_widescreen") && ConfMan.get("remaster_widescreen") == "wide") {
+			_remasterLogicalWidth = 640;
+			_screenWidth = 848;
+		}
 	} else if (_game.platform == Common::kPlatformNES) {
 		_screenWidth = 256;
 		_screenHeight = 240;
@@ -545,6 +552,40 @@ ScummEngine::~ScummEngine() {
 
 	delete _res;
 	delete _gdi;
+
+	// COMI remaster buffers
+	free(_remasterScreen8);
+	free(_remasterBig);
+	free(_remasterOut);
+	_remasterSides.free();
+	free(_remasterProtect);
+	free(_remasterOwner);
+	free(_remasterActorOwner);
+	remasterUpdateCheckStop();
+	remasterBgClear();
+	remasterAIJobDestroy(_remasterCelJob);   // waits for a character being refined
+	if (_remasterSmCap) {
+		_remasterSmCap->finalize();
+		delete _remasterSmCap;
+		_remasterSmCap = nullptr;
+	}
+	remasterAIJobDestroy(_remasterPhotoJob);
+	remasterAIDestroy(_remasterCompareAI);
+	_remasterCompareAI = nullptr;
+	_remasterPhotoJob = nullptr;
+	_remasterCelJob = nullptr;
+	remasterParallelShutdown();
+	remasterAIDestroy(_remasterBgAI);
+	remasterAIDestroy(_remasterAI);
+	free(_remasterRgb);
+	free(_remasterRoomBg);
+	free(_remasterRoomBgValid);
+	free(_remasterActorValue);
+	free(_remasterActorUnder);
+	free(_remasterActorKind);
+	delete _remasterVgaMap;
+	delete _remasterAmigaMap;
+	_remasterBg.free();
 }
 
 
@@ -1494,7 +1535,10 @@ Common::Error ScummEngine::init() {
 		if (_game.platform == Common::kPlatformFMTowns && _game.version == 5)
 			return Common::Error(Common::kUnsupportedColorMode, "This game requires dual graphics layer support which is disabled in this build");
 #endif
-			initGraphics(screenWidth, screenHeight);
+			if (_game.version == 8 && (ConfMan.hasKey("remaster_path") || ConfMan.hasKey("remaster_ai_model")))
+				remasterInitGraphics(screenWidth, screenHeight); // COMI remaster: RGB screen, see remaster_render.cpp
+			else
+				initGraphics(screenWidth, screenHeight);
 
 			if (_game.platform == Common::kPlatformNES)
 				_system->fillScreen(0x1d);
@@ -2600,6 +2644,21 @@ void ScummEngine::setupMusic(int midi) {
 }
 
 void ScummEngine::syncSoundSettings() {
+	// COMI remaster: pick up the side-art checkbox from the options dialog (this is called when it closes).
+	if (_remasterEnabled) {
+		_remasterSidesOn = !ConfMan.hasKey("remaster_side_art") || ConfMan.getBool("remaster_side_art");
+		_remasterCrt = ConfMan.hasKey("remaster_crt") && ConfMan.getBool("remaster_crt");
+		_remasterGrainOn = remasterGrainGuardSetting();
+		_remasterSmoothText = !ConfMan.hasKey("remaster_smooth_text") || ConfMan.getBool("remaster_smooth_text");
+		_remasterHDActors = remasterHDActorsSetting();
+		_remasterHDBgOn = !ConfMan.hasKey("remaster_hd_backgrounds") || ConfMan.getBool("remaster_hd_backgrounds");
+		const bool ai = !ConfMan.hasKey("remaster_ai_enabled") || ConfMan.getBool("remaster_ai_enabled");
+		if (ai && _remasterMode != kRemasterAI && _remasterAI)
+			remasterSetMode(kRemasterAI, false);
+		else if (!ai && _remasterMode == kRemasterAI)
+			remasterSetMode(kRemasterOriginal, false);
+		_remasterFrameDirty = true;
+	}
 	if (!_setupIsComplete)
 		return;
 
@@ -2918,8 +2977,14 @@ void ScummEngine::waitForTimer(int quarterFrames, bool freezeMacGui) {
 	else if (_fastMode & 1)
 		msecDelay = 10;
 
+	if (msecDelay > 0)
+		_remasterSmPeriod = msecDelay;   // smooth scrolling glides over one game frame
 	cur = _system->getMillis();
 	uint32 diff = cur - _lastWaitTime;
+	// COMI remaster governor: did the last game frame take longer than its time slot (the game falls behind)?
+	if (_remasterEnabled && msecDelay > 0)
+		remasterGovernorFrame(diff > msecDelay + msecDelay / 4 || _remasterGovWork > msecDelay * 3 / 4);
+	_remasterGovWork = 0;
 	msecDelay = (msecDelay > diff) ? msecDelay - diff : 0;
 	endTime = cur + msecDelay;
 
@@ -2940,7 +3005,27 @@ void ScummEngine::waitForTimer(int quarterFrames, bool freezeMacGui) {
 		if (_macGui && !freezeMacGui)
 			_macGui->updateWindowManager();
 
-		_system->updateScreen();
+		if (_remasterEnabled)
+			remasterTick();
+		if (!_remasterVideoRequest.empty() && _game.version >= 7) { // dev: video.request (see remasterTick)
+			const Common::String v = _remasterVideoRequest;
+			_remasterVideoRequest.clear();
+			((ScummEngine_v7 *)this)->_splayer->play(v.c_str(), 12, 0, _remasterVideoRequestStart);
+		}
+
+		if (_remasterSayRequest && VAR_EGO != 0xFF && VAR(VAR_EGO) > 0) { // dev: pad.request "say" (see remasterTick)
+			static const char *const lines[] = {
+				"Look behind you, a three-headed monkey! 0123456789",
+				"I'm selling these fine leather jackets. A second line, to test wrapping, outlines and spacing.",
+				"WWWW MMMM iiii llll .,:;!? ()[] \"quoted\" - the quick brown fox jumps over the lazy dog"
+			};
+			const int k = (_remasterSayRequest - 1) % 3;
+			_remasterSayRequest = 0;
+			_actorToPrintStrFor = VAR(VAR_EGO);
+			actorTalk((const byte *)lines[k]);
+			warning("remaster: test line %d said by actor %d (haveMsg %d)", k + 1, VAR(VAR_EGO), _haveMsg);
+		}
+		remasterUpdateScreen();
 		cur = _system->getMillis();
 
 #ifndef DISABLE_TOWNS_DUAL_LAYER_MODE
@@ -2952,7 +3037,7 @@ void ScummEngine::waitForTimer(int quarterFrames, bool freezeMacGui) {
 #endif
 		if (cur >= endTime)
 			break;
-		_system->delayMillis(MIN<uint32>(10, endTime - cur));
+		_system->delayMillis(MIN<uint32>(_remasterSmActive ? 2 : 10, endTime - cur));   // gliding: refresh often
 	}
 
 	// Set the last wait time as the expected end time, which may be different
@@ -4398,7 +4483,7 @@ void ScummEngine::pauseEngineIntern(bool pause) {
 
 		// Update the screen to make it less likely that the player will see a
 		// brief cursor palette glitch when the GUI is disabled.
-		_system->updateScreen();
+		remasterUpdateScreen();
 
 		// Resume sound & video
 		if (_sound && canPauseSoundsDuringSave() && _needsSoundUnpause)

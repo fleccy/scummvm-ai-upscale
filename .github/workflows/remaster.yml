@@ -1,0 +1,104 @@
+name: scummvm-ai-upscale
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (synthetic, no game data)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retro-mode colour mapping
+        run: |
+          g++ -O2 -std=c++11 -I. dists/remaster/tests/palette_test.cpp -o palette_test
+          ./palette_test
+      - name: Side-art generator (resume, regenerate, failures, spending limit, compositor)
+        run: |
+          pip install numpy pillow opencv-python-headless
+          python -W error::ResourceWarning -m unittest discover -s dists/remaster/tests -p 'test_*.py' -v
+      - name: Scripts parse
+        shell: pwsh
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem dists/remaster -Filter *.ps1) {
+            $err = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$err) | Out-Null
+            if ($err.Count) { $err | ForEach-Object { Write-Host "$($f.Name): $_" }; $bad++ }
+          }
+          if ($bad) { exit 1 }
+          python -m py_compile dists/remaster/sides/*.py dists/remaster/video-sides/*.py dists/remaster/check_package.py
+
+  build-windows:
+    name: Windows build
+    needs: tests
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache downloaded dependencies
+        uses: actions/cache@v4
+        with:
+          path: remaster-build/downloads
+          key: deps-windows-${{ hashFiles('dists/remaster/build-windows.sh') }}
+      - name: Build
+        run: bash dists/remaster/build-windows.sh
+      - name: Package (allowlist checked)
+        run: bash dists/remaster/package.sh "scummvm-ai-upscale-${GITHUB_REF_NAME//\//-}"
+      - name: Checksums
+        run: cd remaster-build && sha256sum *-windows-x64.zip | tee SHA256SUMS-windows.txt
+      - uses: actions/attest-build-provenance@v2
+        if: github.event_name != 'pull_request'
+        with:
+          subject-path: remaster-build/*-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: |
+            remaster-build/*-windows-x64.zip
+            remaster-build/SHA256SUMS-windows.txt
+
+  build-linux:
+    name: Linux build
+    needs: tests
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache downloaded dependencies
+        uses: actions/cache@v4
+        with:
+          path: remaster-build-linux/downloads
+          key: deps-linux-${{ hashFiles('dists/remaster/build-linux.sh') }}
+      - name: Build
+        run: bash dists/remaster/build-linux.sh
+      - name: Package (allowlist checked)
+        run: bash dists/remaster/package-linux.sh "scummvm-ai-upscale-${GITHUB_REF_NAME//\//-}"
+      - name: Checksums
+        run: cd remaster-build-linux && sha256sum *-linux-x86_64.tar.gz | tee SHA256SUMS-linux.txt
+      - uses: actions/attest-build-provenance@v2
+        if: github.event_name != 'pull_request'
+        with:
+          subject-path: remaster-build-linux/*-linux-x86_64.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: |
+            remaster-build-linux/*-linux-x86_64.tar.gz
+            remaster-build-linux/SHA256SUMS-linux.txt

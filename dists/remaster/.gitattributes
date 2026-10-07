@@ -1,0 +1,2 @@
+dists/remaster/*.cmd text eol=crlf
+dists/remaster/*.ps1 text eol=crlf
