@@ -2066,14 +2066,14 @@ void ScummEngine_v6::o6_roomOps() {
 	case SO_ROOM_SCROLL:
 		b = pop();
 		a = pop();
-		if (a < (_screenWidth / 2))
-			a = (_screenWidth / 2);
-		if (b < (_screenWidth / 2))
-			b = (_screenWidth / 2);
-		if (a > _roomWidth - (_screenWidth / 2))
-			a = _roomWidth - (_screenWidth / 2);
-		if (b > _roomWidth - (_screenWidth / 2))
-			b = _roomWidth - (_screenWidth / 2);
+		if (a < (logicalScreenWidth() / 2))
+			a = (logicalScreenWidth() / 2);
+		if (b < (logicalScreenWidth() / 2))
+			b = (logicalScreenWidth() / 2);
+		if (a > _roomWidth - (logicalScreenWidth() / 2))
+			a = _roomWidth - (logicalScreenWidth() / 2);
+		if (b > _roomWidth - (logicalScreenWidth() / 2))
+			b = _roomWidth - (logicalScreenWidth() / 2);
 		VAR(VAR_CAMERA_MIN_X) = a;
 		VAR(VAR_CAMERA_MAX_X) = b;
 		break;

@@ -642,7 +642,7 @@ void ScummEngine::clearBanner() {
 
 			markRectAsDirty(_virtscr[kMainVirtScreen].number, 0, rowSize, _screenTop, _screenHeight + _screenTop);
 			ScummEngine::drawDirtyScreenParts();
-			_system->updateScreen();
+			remasterUpdateScreen();
 		}
 
 		free(_bannerMem);
@@ -1081,7 +1081,7 @@ void ScummEngine_v7::queryQuit(bool returnToLauncher) {
 
 				markRectAsDirty(_virtscr[kMainVirtScreen].number, 0, _screenWidth + 8, _screenTop, _screenHeight + _screenTop);
 				ScummEngine::drawDirtyScreenParts();
-				_system->updateScreen();
+				remasterUpdateScreen();
 			}
 
 			// Finally, resume the engine, clear the input state, and restore the charset.
@@ -1641,7 +1641,7 @@ void ScummEngine::showDraftsInventory() {
 
 			markRectAsDirty(_virtscr[kMainVirtScreen].number, 0, rowSize, _screenTop, _screenHeight + _screenTop);
 			ScummEngine::drawDirtyScreenParts();
-			_system->updateScreen();
+			remasterUpdateScreen();
 
 			free(screenMem);
 			screenMem = nullptr;
@@ -2069,7 +2069,7 @@ void ScummEngine::drawDraftsInventory() {
 
 	// Update the screen with all the new stuff!
 	ScummEngine::drawDirtyScreenParts();
-	_system->updateScreen();
+	remasterUpdateScreen();
 }
 
 void ScummEngine::toggleVoiceMode() {
@@ -2371,7 +2371,7 @@ bool ScummEngine::userWriteLabelRoutine(Common::KeyState &ks, bool &leftMsClicke
 				_internalGUIControls[_mainMenuSavegameLabel].label = _savegameNames[_mainMenuSavegameLabel - 1];
 				drawInternalGUIControl(_mainMenuSavegameLabel, 1);
 				ScummEngine::drawDirtyScreenParts();
-				_system->updateScreen();
+				remasterUpdateScreen();
 			}
 		} else if (ks.ascii >= 32 && ks.ascii <= 122) { // Handle characters
 			if (curLen < 39) {
@@ -2379,7 +2379,7 @@ bool ScummEngine::userWriteLabelRoutine(Common::KeyState &ks, bool &leftMsClicke
 				_internalGUIControls[_mainMenuSavegameLabel].label = _savegameNames[_mainMenuSavegameLabel - 1];
 				drawInternalGUIControl(_mainMenuSavegameLabel, 1);
 				ScummEngine::drawDirtyScreenParts();
-				_system->updateScreen();
+				remasterUpdateScreen();
 			}
 		}
 
@@ -2629,7 +2629,7 @@ void ScummEngine::showMainMenu() {
 					drawInternalGUIControl(_mainMenuSavegameLabel, 1);
 
 					ScummEngine::drawDirtyScreenParts();
-					_system->updateScreen();
+					remasterUpdateScreen();
 
 					if (_menuPage == GUI_PAGE_LOAD && (_game.version != 4 || _game.id == GID_LOOM)) {
 						if (executeMainMenuOperation(GUI_CTRL_OK_BUTTON, curMouseX, curMouseY, hasLoadedState))
@@ -2898,7 +2898,7 @@ bool ScummEngine::executeMainMenuOperation(int op, int mouseX, int mouseY, bool 
 				formattedString = Common::String::format(saveScreenTitle, _savegameNames[_mainMenuSavegameLabel - 1].substr(labelSkip).c_str());
 				drawMainMenuTitle(formattedString.c_str());
 				ScummEngine::drawDirtyScreenParts();
-				_system->updateScreen();
+				remasterUpdateScreen();
 
 				waitForTimer(60);
 
@@ -2957,7 +2957,7 @@ bool ScummEngine::executeMainMenuOperation(int op, int mouseX, int mouseY, bool 
 						convertMessageToString((const byte *)getGUIString(gsGameNotLoaded), (byte *)saveScreenTitle, sizeof(saveScreenTitle));
 						drawMainMenuTitle(saveScreenTitle);		
 						ScummEngine::drawDirtyScreenParts();
-						_system->updateScreen();
+						remasterUpdateScreen();
 						waitForTimer(300);
 					}
 					drawMainMenuControls();
@@ -2967,7 +2967,7 @@ bool ScummEngine::executeMainMenuOperation(int op, int mouseX, int mouseY, bool 
 
 				drawMainMenuTitle(formattedString.c_str());
 				ScummEngine::drawDirtyScreenParts();
-				_system->updateScreen();
+				remasterUpdateScreen();
 
 				waitForTimer(60);
 
@@ -4337,7 +4337,7 @@ void ScummEngine::drawMainMenuControls() {
 		drawInternalGUIControl(_mainMenuSavegameLabel, 1);
 
 	ScummEngine::drawDirtyScreenParts();
-	_system->updateScreen();
+	remasterUpdateScreen();
 }
 
 void ScummEngine::drawMainMenuControlsSegaCD() {
@@ -4410,7 +4410,7 @@ void ScummEngine::drawMainMenuControlsSegaCD() {
 	}
 
 	ScummEngine::drawDirtyScreenParts();
-	_system->updateScreen();
+	remasterUpdateScreen();
 }
 
 void ScummEngine::updateMainMenuControls() {
@@ -4587,7 +4587,7 @@ void ScummEngine::updateMainMenuControls() {
 	}
 
 	ScummEngine::drawDirtyScreenParts();
-	_system->updateScreen();
+	remasterUpdateScreen();
 }
 
 void ScummEngine::updateMainMenuControlsSegaCD() {
@@ -4624,7 +4624,7 @@ void ScummEngine::updateMainMenuControlsSegaCD() {
 	}
 
 	ScummEngine::drawDirtyScreenParts();
-	_system->updateScreen();
+	remasterUpdateScreen();
 }
 
 void ScummEngine::drawMainMenuTitle(const char *title) {
@@ -4698,7 +4698,7 @@ void ScummEngine::drawMainMenuTitle(const char *title) {
 	sayText(title, Common::TextToSpeechManager::INTERRUPT);
 #endif
 	ScummEngine::drawDirtyScreenParts();
-	_system->updateScreen();
+	remasterUpdateScreen();
 }
 
 int ScummEngine::getGUIStringHeight(const char *str) {

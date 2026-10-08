@@ -430,6 +430,14 @@ int NutRenderer::drawCharV7(byte *buffer, Common::Rect &clipRect, int x, int y, 
 
 	int clipWdth = (_chars[chr].width - width);
 	char color = (col != -1) ? col : 1;
+	// COMI remaster: text pixels are recorded so the remaster display modes can keep subtitles crisp.
+	const bool noteText = _vm->_remasterEnabled;
+	auto put = [&](byte *p, byte v) {
+		const byte under = *p;
+		*p = v;
+		if (noteText)
+			_vm->remasterNoteTextPixel(p, under);
+	};
 
 	if (_vm->_game.version == 7) {
 		if (hardcodedColors) {
@@ -462,7 +470,7 @@ int NutRenderer::drawCharV7(byte *buffer, Common::Rect &clipRect, int x, int y, 
 				for (int i = minX; i < width; i++) {
 					int8 value = *src++;
 					if (value != _chars[chr].transparency)
-						dst[i] = value;
+						put(&dst[i], value);
 				}
 				src += clipWdth;
 				dst += pitch;
@@ -473,11 +481,11 @@ int NutRenderer::drawCharV7(byte *buffer, Common::Rect &clipRect, int x, int y, 
 				for (int i = minX; i < width; i++) {
 					int8 value = *src++;
 					if (value == -color)
-						dst[i] = 0xFF;
+						put(&dst[i], 0xFF);
 					else if (value == -31)
-						dst[i] = 0;
+						put(&dst[i], 0);
 					else if (value != _chars[chr].transparency)
-						dst[i] = value;
+						put(&dst[i], value);
 				}
 				src += clipWdth;
 				dst += pitch;
@@ -487,7 +495,7 @@ int NutRenderer::drawCharV7(byte *buffer, Common::Rect &clipRect, int x, int y, 
 				for (int i = minX; i < width; i++) {
 					int8 value = *src++;
 					if (value != _chars[chr].transparency)
-						dst[i] = (value == 1) ? color : value;
+						put(&dst[i], (value == 1) ? color : value);
 				}
 				src += clipWdth;
 				dst += pitch;

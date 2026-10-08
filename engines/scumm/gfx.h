@@ -229,7 +229,7 @@ struct VirtScreen : Graphics::Surface {
 	 * This together with bdirty is used to do efficient redrawing of
 	 * the screen.
 	 */
-	uint16 tdirty[80 + 1];
+	uint16 tdirty[106 + 1];   // COMI remaster: 106 strips in 848-wide widescreen (was 80)
 
 	/**
 	 * Array containing for each visible strip of this virtual screen the
@@ -238,7 +238,7 @@ struct VirtScreen : Graphics::Surface {
 	 * This together with tdirty is used to do efficient redrawing of
 	 * the screen.
 	 */
-	uint16 bdirty[80 + 1];
+	uint16 bdirty[106 + 1];
 
 	void clear() {
 		// FIXME: Call Graphics::Surface clear / constructor?
@@ -260,7 +260,7 @@ struct VirtScreen : Graphics::Surface {
 	 *   vs->setDirtyRange(0, 0);
 	 */
 	void setDirtyRange(int top, int bottom) {
-		for (int i = 0; i < 80 + 1; i++) {
+		for (int i = 0; i < ARRAYSIZE(tdirty); i++) {
 			tdirty[i] = top;
 			bdirty[i] = bottom;
 		}
@@ -354,6 +354,9 @@ protected:
 public:
 	Gdi(ScummEngine *vm);
 	virtual ~Gdi();
+
+	// Remaster tooling (remaster_dump.cpp): read-only access to the walk-behind (z-plane) tables.
+	int remasterGetZPlanes(const byte *ptr, const byte *zplane_list[9]) const { return getZPlanes(ptr, zplane_list, false); }
 
 	virtual void setRenderModeColorMap(const byte *map) {}
 	virtual byte remapColorToRenderMode(byte col) const { return col; }
