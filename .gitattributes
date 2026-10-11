@@ -8,3 +8,6 @@
 *.sh text eol=lf
 /config* text eol=lf
 configure.engine text eol=lf
+
+# AI model files (dists/remaster/models): never converted (an ONNX file can look like text)
+*.onnx binary

@@ -1,0 +1,64 @@
+BSD 3-Clause License
+
+Copyright (c) 2021, Xin
+tao Wang
+All rights reserved.
+
+Redistribution
+ and use in source and binary forms, with or 
+without
+modification, are permitted provided 
+that the following conditions are met:
+
+1. Re
+distributions of source code must retain the 
+above copyright notice, this
+   list of condi
+tions and the following disclaimer.
+
+2. Redis
+tributions in binary form must reproduce the 
+above copyright notice,
+   this list of condi
+tions and the following disclaimer in the doc
+umentation
+   and/or other materials provided
+ with the distribution.
+
+3. Neither the name 
+of the copyright holder nor the names of its
+
+   contributors may be used to endorse or pro
+mote products derived from
+   this software w
+ithout specific prior written permission.
+
+TH
+IS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLD
+ERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS 
+OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIM
+ITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTAB
+ILITY AND FITNESS FOR A PARTICULAR PURPOSE AR
+E
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIR
+ECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY
+, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NO
+T LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; 
+OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND 
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRA
+CT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGL
+IGENCE OR OTHERWISE) ARISING IN ANY WAY OUT O
+F THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED O
+F THE POSSIBILITY OF SUCH DAMAGE.
+
+

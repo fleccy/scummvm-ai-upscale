@@ -1695,7 +1695,7 @@ void ScummEngine::saveLoadWithSerializer(Common::Serializer &s) {
 		}
 
 		updateCursor();
-		_system->warpMouse(x, y);
+		remasterWarpMouse(x, y);
 	}
 
 	// Before V61, we re-used the _haveMsg flag to handle "alternative" speech

@@ -45,6 +45,9 @@
 #include "scumm/debugger.h"
 #include "scumm/detection_tables.h"
 #include "scumm/dialogs.h"
+#include "scumm/remaster_ai.h"
+#include "scumm/remaster_game.h"
+#include "scumm/remaster_tiles.h"
 #include "scumm/file.h"
 #include "scumm/file_nes.h"
 #include "scumm/imuse/imuse.h"
@@ -414,6 +417,17 @@ ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
 		_screenHeight = 240;
 	}
 
+	// Remaster: true widescreen for games whose camera logic has been checked. 53/40 of the width is about 16:9
+	// and a multiple of 8 (strips): COMI 640 -> 848 (2544 x 1440 at 3x), The Dig 320 -> 424. The camera keeps the
+	// original logic (logicalScreenWidth()).
+	_remasterGame = remasterGameProfile(_game.id);
+	if (_game.id == GID_LOOM && _game.version != 4)
+		_remasterGame = nullptr;   // Loom: the VGA CD talkie only (not the EGA, FM Towns, PC Engine or Mac versions)
+	if (_remasterGame && _remasterGame->widescreen && ConfMan.hasKey("remaster_widescreen") && ConfMan.get("remaster_widescreen") == "wide") {
+		_remasterLogicalWidth = _screenWidth;
+		_screenWidth = (_screenWidth * 53 / 40 + 7) & ~7;
+	}
+
 #ifndef DISABLE_TOWNS_DUAL_LAYER_MODE
 	if (_game.platform == Common::kPlatformFMTowns) {
 		ConfMan.registerDefault("force_fmtowns_hires_mode", false);
@@ -465,6 +479,8 @@ ScummEngine::ScummEngine(OSystem *syst, const DetectorResult &dr)
 
 
 ScummEngine::~ScummEngine() {
+	if (_remasterOffLog > 0)
+		remasterOffscreenFlush();   // dev: widescreen reveal check, the last room's summary
 	delete _musicEngine;
 
 	// Delete the sound object earlier than the actors
@@ -545,6 +561,42 @@ ScummEngine::~ScummEngine() {
 
 	delete _res;
 	delete _gdi;
+
+	// COMI remaster buffers
+	free(_remasterScreen8);
+	if (_remasterOut != _remasterBig)
+		free(_remasterOut);
+	free(_remasterBig);
+	_remasterSides.free();
+	free(_remasterProtect);
+	free(_remasterOwner);
+	free(_remasterActorOwner);
+	remasterUpdateCheckStop();
+	remasterBgClear();
+	remasterAIJobDestroy(_remasterCelJob);   // waits for a character being refined
+	if (_remasterSmCap) {
+		_remasterSmCap->finalize();
+		delete _remasterSmCap;
+		_remasterSmCap = nullptr;
+	}
+	remasterAIJobDestroy(_remasterPhotoJob);
+	remasterAIDestroy(_remasterCompareAI);
+	_remasterCompareAI = nullptr;
+	_remasterPhotoJob = nullptr;
+	_remasterCelJob = nullptr;
+	remasterParallelShutdown();
+	remasterBgAIDestroy();
+	remasterTileCacheDestroy(_remasterTiles);
+	remasterAIDestroy(_remasterAI);
+	free(_remasterRgb);
+	free(_remasterRoomBg);
+	free(_remasterRoomBgValid);
+	free(_remasterActorValue);
+	free(_remasterActorUnder);
+	free(_remasterActorKind);
+	delete _remasterVgaMap;
+	delete _remasterAmigaMap;
+	_remasterBg.free();
 }
 
 
@@ -1494,7 +1546,15 @@ Common::Error ScummEngine::init() {
 		if (_game.platform == Common::kPlatformFMTowns && _game.version == 5)
 			return Common::Error(Common::kUnsupportedColorMode, "This game requires dual graphics layer support which is disabled in this build");
 #endif
-			initGraphics(screenWidth, screenHeight);
+			// v6 and older: only the PC versions at their own resolution (no Mac screen, no doubled text surface); the
+			// Sam & Max CD's index file is listed for no platform (the Mac version is told apart by its data file)
+			if (_remasterGame && (ConfMan.hasKey("remaster_path") || ConfMan.hasKey("remaster_ai_model")) &&
+			    (_game.version >= 7 || (!_macScreen && _textSurfaceMultiplier == 1 &&
+			                            (_game.platform == Common::kPlatformDOS || _game.platform == Common::kPlatformWindows ||
+			                             (_game.id == GID_SAMNMAX && _game.platform == Common::kPlatformUnknown)))))
+				remasterInitGraphics(screenWidth, screenHeight); // COMI remaster: RGB screen, see remaster_render.cpp
+			else
+				initGraphics(screenWidth, screenHeight);
 
 			if (_game.platform == Common::kPlatformNES)
 				_system->fillScreen(0x1d);
@@ -2600,6 +2660,9 @@ void ScummEngine::setupMusic(int midi) {
 }
 
 void ScummEngine::syncSoundSettings() {
+	// COMI remaster: pick up the side-art checkbox from the options dialog (this is called when it closes).
+	if (_remasterEnabled)
+		remasterSyncSettings();
 	if (!_setupIsComplete)
 		return;
 
@@ -2918,8 +2981,14 @@ void ScummEngine::waitForTimer(int quarterFrames, bool freezeMacGui) {
 	else if (_fastMode & 1)
 		msecDelay = 10;
 
+	if (msecDelay > 0)
+		_remasterSmPeriod = msecDelay;   // smooth scrolling glides over one game frame
 	cur = _system->getMillis();
 	uint32 diff = cur - _lastWaitTime;
+	// COMI remaster governor: did the last game frame take longer than its time slot (the game falls behind)?
+	if (_remasterEnabled && msecDelay > 0)
+		remasterGovernorFrame(diff > msecDelay + msecDelay / 4 || _remasterGovWork > msecDelay * 3 / 4);
+	_remasterGovWork = 0;
 	msecDelay = (msecDelay > diff) ? msecDelay - diff : 0;
 	endTime = cur + msecDelay;
 
@@ -2940,7 +3009,61 @@ void ScummEngine::waitForTimer(int quarterFrames, bool freezeMacGui) {
 		if (_macGui && !freezeMacGui)
 			_macGui->updateWindowManager();
 
-		_system->updateScreen();
+		if (_remasterEnabled)
+			remasterTick();
+		if (!_remasterVideoRequest.empty() && _game.version >= 7) { // dev: video.request (see remasterTick)
+			const Common::String v = _remasterVideoRequest;
+			_remasterVideoRequest.clear();
+			((ScummEngine_v7 *)this)->_splayer->play(v.c_str(), 12, 0, _remasterVideoRequestStart);
+		}
+
+		if (_remasterRoomRequest > 0) { // dev: pad.request "room" (see remasterTick)
+			const int r = _remasterRoomRequest;
+			_remasterRoomRequest = 0;
+			debug(1, "remaster: test room switch %d -> %d", _currentRoom, r);
+			// v5 and older: a room with no disk is not in the game (its "disk 0" is the index file: loading it crashes);
+			// one on a disk file that does not exist would wait for that disk
+			if (_game.version < 7 && (r >= _numRooms || !_res->_types[rtRoom][r]._roomno || _res->_types[rtRoom][r]._roomoffs == RES_INVALID_OFFSET ||
+			                          !Common::File::exists(generateFilename(r)))) {
+				warning("remaster: test room %d does not exist", r);
+			} else {
+				startScene(r, nullptr, 0);
+				// v5 and older: the game sets the main screen height for each room from its scripts (close-ups are
+				// lower); a room switched to directly can be lower than the screen, and drawing past its mask buffers
+				// corrupts memory
+				VirtScreen &mvs = _virtscr[kMainVirtScreen];
+				if (_game.version < 7 && _roomHeight > 0 && mvs.h > _roomHeight) {
+					warning("remaster: test room %d is %d high, main screen %d: screen made lower", r, _roomHeight, mvs.h);
+					initScreens(mvs.topline, mvs.topline + _roomHeight);
+				}
+			}
+		}
+
+		if (_remasterEgoRequest.x >= 0 && VAR_EGO != 0xFF && VAR(VAR_EGO) > 0) { // dev: pad.request "ego" (see remasterTick)
+			Actor *ego = derefActorSafe(VAR(VAR_EGO), "remaster ego test");
+			if (ego && _currentRoom > 0) {
+				ego->putActor(_remasterEgoRequest.x, _remasterEgoRequest.y, _currentRoom);
+				if (_game.version < 7)
+					setCameraFollows(ego, true);
+			}
+			_remasterEgoRequest = Common::Point(-1, -1);
+		}
+
+		if (_remasterSayRequest && VAR_EGO != 0xFF && VAR(VAR_EGO) > 0) { // dev: pad.request "say" (see remasterTick)
+			static const char *const lines[] = {
+				"Look behind you, a three-headed monkey! 0123456789",
+				"I'm selling these fine leather jackets. A second line, to test wrapping, outlines and spacing.",
+				"WWWW MMMM iiii llll .,:;!? ()[] \"quoted\" - the quick brown fox jumps over the lazy dog"
+			};
+			const int k = (_remasterSayRequest - 1) % 3;
+			_remasterSayRequest = 0;
+			_actorToPrintStrFor = VAR(VAR_EGO);
+			actorTalk((const byte *)lines[k]);
+			warning("remaster: test line %d said by actor %d (haveMsg %d)", k + 1, VAR(VAR_EGO), _haveMsg);
+		}
+		if (remasterOffscreenOn())
+			remasterOffscreenCheck();   // dev: widescreen reveal check (remaster_offscreen_log)
+		remasterUpdateScreen();
 		cur = _system->getMillis();
 
 #ifndef DISABLE_TOWNS_DUAL_LAYER_MODE
@@ -2952,7 +3075,7 @@ void ScummEngine::waitForTimer(int quarterFrames, bool freezeMacGui) {
 #endif
 		if (cur >= endTime)
 			break;
-		_system->delayMillis(MIN<uint32>(10, endTime - cur));
+		_system->delayMillis(MIN<uint32>(_remasterSmActive ? 2 : 10, endTime - cur));   // gliding: refresh often
 	}
 
 	// Set the last wait time as the expected end time, which may be different
@@ -3375,6 +3498,9 @@ void ScummEngine::scummLoop_updateScummVars() {
 		VAR(VAR_VIRT_MOUSE_X) = _virtualMouse.x;
 		VAR(VAR_VIRT_MOUSE_Y) = _virtualMouse.y;
 		VAR(VAR_MOUSE_X) = _mouse.x;
+		// remaster widescreen: over the room, the scripts see the pointer on the original 320-wide view
+		if (remasterClassicWide() && !remasterPanelRow(_mouse.y))
+			VAR(VAR_MOUSE_X) = CLIP<int>(_mouse.x - remasterLogicalOffset(), 0, _remasterLogicalWidth - 1);
 		VAR(VAR_MOUSE_Y) = _mouse.y;
 		if (VAR_DEBUGMODE != 0xFF) {
 			// This is NOT for the Mac version of Indy3/Loom
@@ -4398,7 +4524,7 @@ void ScummEngine::pauseEngineIntern(bool pause) {
 
 		// Update the screen to make it less likely that the player will see a
 		// brief cursor palette glitch when the GUI is disabled.
-		_system->updateScreen();
+		remasterUpdateScreen();
 
 		// Resume sound & video
 		if (_sound && canPauseSoundsDuringSave() && _needsSoundUnpause)

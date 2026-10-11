@@ -111,6 +111,7 @@ byte ClassicCostumeRenderer::paintCelByleRLE(int xMoveCur, int yMoveCur) {
 	compData.scaleIndexMask = 0xff;
 
 	bool decode = true;
+	const byte *remasterCelSrc = _srcPtr; // remaster: start of the cel data (before any clipping skip)
 
 	byte drawFlag = paintCelByleRLECommon(
 		xMoveCur,
@@ -124,6 +125,12 @@ byte ClassicCostumeRenderer::paintCelByleRLE(int xMoveCur, int yMoveCur) {
 
 	if (!decode)
 		return drawFlag;
+
+	// Remaster (SCUMM v5 PC costumes): let the HD actor renderer draw this cel from its full-size source. Colour 13
+	// is the shadow colour when the room has a shadow table (shadow mode 1 there).
+	if (_vm->_remasterEnabled && !c64Cost && !newAmiCost && !pcEngCost && !(_shadowMode & 0x20))
+		_vm->remasterRecordCel(remasterCelSrc, _width, _height, compData.mask, compData.shr, _palette, _shadowTable ? 1 : 0,
+			!_drawActorToRight, _remasterCelRect, 0);
 
 	compData.maskPtr = _vm->getMaskBuffer(0, compData.y, _zbuf);
 

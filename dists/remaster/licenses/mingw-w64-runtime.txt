@@ -1,0 +1,537 @@
+MinGW-w64 runtime licensing
+*****************
+**********
+
+This program or library was built
+ using MinGW-w64 and statically
+linked agains
+t the MinGW-w64 runtime. Some parts of the ru
+ntime
+are under licenses which require that t
+he copyright and license
+notices are included
+ when distributing the code in binary form.
+T
+hese notices are listed below.
+
+
+============
+============
+Overall copyright notice
+=======
+=================
+
+Copyright (c) 2009, 2010, 
+2011, 2012, 2013 by the mingw-w64 project
+
+Th
+is license has been certified as open source.
+ It has also been designated
+as GPL compatibl
+e by the Free Software Foundation (FSF).
+
+Red
+istribution and use in source and binary form
+s, with or without
+modification, are permitte
+d provided that the following conditions are 
+met:
+
+   1. Redistributions in source code mu
+st retain the accompanying copyright
+      no
+tice, this list of conditions, and the follow
+ing disclaimer.
+   2. Redistributions in bina
+ry form must reproduce the accompanying
+     
+ copyright notice, this list of conditions, a
+nd the following disclaimer
+      in the docu
+mentation and/or other materials provided wit
+h the
+      distribution.
+   3. Names of the 
+copyright holders must not be used to endorse
+ or promote
+      products derived from this 
+software without prior written permission
+   
+   from the copyright holders.
+   4. The righ
+t to distribute this software or to use it fo
+r any purpose does
+      not give you the rig
+ht to use Servicemarks (sm) or Trademarks (tm
+) of
+      the copyright holders.  Use of the
+m is covered by separate agreement
+      with
+ the copyright holders.
+   5. If any files ar
+e modified, you must cause the modified files
+ to carry
+      prominent notices stating tha
+t you changed the files and the date of
+     
+ any change.
+
+Disclaimer
+
+THIS SOFTWARE IS PR
+OVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND
+ ANY EXPRESSED
+OR IMPLIED WARRANTIES, INCLUDI
+NG, BUT NOT LIMITED TO, THE IMPLIED WARRANTIE
+S
+OF MERCHANTABILITY AND FITNESS FOR A PARTIC
+ULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHAL
+L THE COPYRIGHT HOLDERS BE LIABLE FOR ANY DIR
+ECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY
+, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NO
+T
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR SERVICES; LOSS OF USE, DATA,
+OR PROFITS; 
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND 
+ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRA
+CT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGL
+IGENCE OR OTHERWISE) ARISING IN ANY WAY OUT O
+F THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED O
+F THE POSSIBILITY OF SUCH DAMAGE.
+
+==========
+============================== 
+getopt, getop
+t_long, and getop_long_only
+=================
+======================= 
+
+Copyright (c) 2002 
+Todd C. Miller <Todd.Miller@courtesan.com> 
+ 
+
+Permission to use, copy, modify, and distrib
+ute this software for any 
+purpose with or wi
+thout fee is hereby granted, provided that th
+e above 
+copyright notice and this permission
+ notice appear in all copies. 
+ 	 
+THE SOFTWA
+RE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAI
+MS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWAR
+E INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHAN
+TABILITY AND FITNESS. IN NO EVENT SHALL THE A
+UTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDI
+RECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA 
+OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT,
+ NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ OUT OF
+OR IN CONNECTION WITH THE USE OR PERF
+ORMANCE OF THIS SOFTWARE.
+
+Sponsored in part 
+by the Defense Advanced Research Projects
+Age
+ncy (DARPA) and Air Force Research Laboratory
+, Air Force
+Materiel Command, USAF, under agr
+eement number F39502-99-1-0512.
+
+        *   
+    *       *       *       *       *       *
+ 
+
+Copyright (c) 2000 The NetBSD Foundation, 
+Inc.
+All rights reserved.
+
+This code is deriv
+ed from software contributed to The NetBSD Fo
+undation
+by Dieter Baron and Thomas Klausner.
+
+
+Redistribution and use in source and binary
+ forms, with or without
+modification, are per
+mitted provided that the following conditions
+
+are met:
+ 1. Redistributions of source code 
+must retain the above copyright
+    notice, t
+his list of conditions and the following disc
+laimer.
+ 2. Redistributions in binary form mu
+st reproduce the above copyright
+    notice, 
+this list of conditions and the following dis
+claimer in the
+    documentation and/or other
+ materials provided with the distribution.
+
+T
+HIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDA
+TION, INC. AND CONTRIBUTORS
+``AS IS'' AND ANY
+ EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BU
+T NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF M
+ERCHANTABILITY AND FITNESS FOR A PARTICULAR
+P
+URPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+ FOUNDATION OR CONTRIBUTORS
+BE LIABLE FOR ANY
+ DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMP
+LARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BU
+T NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE G
+OODS OR SERVICES; LOSS OF USE, DATA, OR PROFI
+TS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED 
+AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CO
+NTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
+NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY O
+UT OF THE USE OF THIS SOFTWARE, EVEN IF ADVIS
+ED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+
+=====
+=============================================
+=============
+gdtoa: Converting between IEEE 
+floating point numbers and ASCII
+============
+=============================================
+======
+
+The author of this software is David 
+M. Gay.
+
+Copyright (C) 1997, 1998, 1999, 2000
+, 2001 by Lucent Technologies
+All Rights Rese
+rved
+
+Permission to use, copy, modify, and di
+stribute this software and
+its documentation 
+for any purpose and without fee is hereby
+gra
+nted, provided that the above copyright notic
+e appear in all
+copies and that both that the
+ copyright notice and this
+permission notice 
+and warranty disclaimer appear in supporting
+
+documentation, and that the name of Lucent or
+ any of its entities
+not be used in advertisi
+ng or publicity pertaining to
+distribution of
+ the software without specific, written prior
+
+permission.
+
+LUCENT DISCLAIMS ALL WARRANTIES
+ WITH REGARD TO THIS SOFTWARE,
+INCLUDING ALL 
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FIT
+NESS.
+IN NO EVENT SHALL LUCENT OR ANY OF ITS 
+ENTITIES BE LIABLE FOR ANY
+SPECIAL, INDIRECT 
+OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATS
+OEVER RESULTING FROM LOSS OF USE, DATA OR PRO
+FITS, WHETHER
+IN AN ACTION OF CONTRACT, NEGLI
+GENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT O
+F OR IN CONNECTION WITH THE USE OR PERFORMANC
+E OF
+THIS SOFTWARE.
+
+        *       *       
+*       *       *       *       *
+
+The author
+ of this software is David M. Gay.
+
+Copyright
+ (C) 2005 by David M. Gay
+All Rights Reserved
+
+
+Permission to use, copy, modify, and distri
+bute this software and its
+documentation for 
+any purpose and without fee is hereby granted
+,
+provided that the above copyright notice ap
+pear in all copies and that
+both that the cop
+yright notice and this permission notice and 
+warranty
+disclaimer appear in supporting docu
+mentation, and that the name of
+the author or
+ any of his current or former employers not b
+e used in
+advertising or publicity pertaining
+ to distribution of the software
+without spec
+ific, written prior permission.
+
+THE AUTHOR D
+ISCLAIMS ALL WARRANTIES WITH REGARD TO THIS S
+OFTWARE,
+INCLUDING ALL IMPLIED WARRANTIES OF 
+MERCHANTABILITY AND FITNESS.  IN
+NO EVENT SHA
+LL THE AUTHOR OR ANY OF HIS CURRENT OR FORMER
+ EMPLOYERS BE
+LIABLE FOR ANY SPECIAL, INDIREC
+T OR CONSEQUENTIAL DAMAGES OR ANY
+DAMAGES WHA
+TSOEVER RESULTING FROM LOSS OF USE, DATA OR P
+ROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEG
+LIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT
+ OF OR IN CONNECTION WITH THE USE OR PERFORMA
+NCE OF THIS
+SOFTWARE.
+
+        *       *     
+  *       *       *       *       *
+
+The auth
+or of this software is David M. Gay.
+
+Copyrig
+ht (C) 2004 by David M. Gay.
+All Rights Reser
+ved
+Based on material in the rest of /netlib/
+fp/gdota.tar.gz,
+which is copyright (C) 1998,
+ 2000 by Lucent Technologies.
+
+Permission to 
+use, copy, modify, and distribute this softwa
+re and
+its documentation for any purpose and 
+without fee is hereby
+granted, provided that 
+the above copyright notice appear in all
+copi
+es and that both that the copyright notice an
+d this
+permission notice and warranty disclai
+mer appear in supporting
+documentation, and t
+hat the name of Lucent or any of its entities
+
+not be used in advertising or publicity pert
+aining to
+distribution of the software withou
+t specific, written prior
+permission.
+
+LUCENT
+ DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+ SOFTWARE,
+INCLUDING ALL IMPLIED WARRANTIES O
+F MERCHANTABILITY AND FITNESS.
+IN NO EVENT SH
+ALL LUCENT OR ANY OF ITS ENTITIES BE LIABLE F
+OR ANY
+SPECIAL, INDIRECT OR CONSEQUENTIAL DAM
+AGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM
+ LOSS OF USE, DATA OR PROFITS, WHETHER
+IN AN 
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTI
+OUS ACTION,
+ARISING OUT OF OR IN CONNECTION W
+ITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+
+
+
+=========================
+Parts of the math
+ library
+=========================
+
+Copyright
+ (C) 1993 by Sun Microsystems, Inc. All right
+s reserved.
+
+Developed at SunSoft, a Sun Micr
+osystems, Inc. business.
+Permission to use, c
+opy, modify, and distribute this
+software is 
+freely granted, provided that this notice
+is 
+preserved.
+
+        *       *       *       *
+       *       *       *
+
+Copyright (C) 1993 
+by Sun Microsystems, Inc. All rights reserved
+.
+
+Developed at SunPro, a Sun Microsystems, I
+nc. business.
+Permission to use, copy, modify
+, and distribute this
+software is freely gran
+ted, provided that this notice
+is preserved.
+
+
+        *       *       *       *       *   
+    *       *
+
+FIXME: Cephes math lib
+Copyrig
+ht (C) 1984-1998 Stephen L. Moshier
+
+It sound
+s vague, but as to be found at
+<http://lists.
+debian.org/debian-legal/2004/12/msg00295.html
+>, it gives an
+impression that the author cou
+ld be willing to give an explicit
+permission 
+to distribute those files e.g. under a BSD st
+yle license. So
+probably there is no problem 
+here, although it could be good to get a
+perm
+ission from the author and then add a license
+ into the Cephes files
+in MinGW runtime. At l
+east on follow-up it is marked that debian se
+es the
+version a-like BSD one. As MinGW.org (
+where those cephes parts are coming
+from) dis
+tributes them now over 6 years, it should be 
+fine.
+
+======================================
+===========
+Some string, memory and time conv
+ersion functions
+============================
+=====================
+
+Copyright © 2005-2020
+ Rich Felker, et al.
+
+Permission is hereby gr
+anted, free of charge, to any person obtainin
+g
+a copy of this software and associated docu
+mentation files (the
+"Software"), to deal in 
+the Software without restriction, including
+w
+ithout limitation the rights to use, copy, mo
+dify, merge, publish,
+distribute, sublicense,
+ and/or sell copies of the Software, and to
+p
+ermit persons to whom the Software is furnish
+ed to do so, subject to
+the following conditi
+ons:
+
+The above copyright notice and this per
+mission notice shall be
+included in all copie
+s or substantial portions of the Software.
+
+T
+HE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARR
+ANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDI
+NG BUT NOT LIMITED TO THE WARRANTIES OF
+MERCH
+ANTABILITY, FITNESS FOR A PARTICULAR PURPOSE 
+AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AU
+THORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, AR
+ISING FROM, OUT OF OR IN CONNECTION WITH THE
+
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+SOFTWARE.
+
+==================================
+=
+Headers and IDLs imported from Wine
+=======
+============================
+
+Some header and
+ IDL files were imported from the Wine projec
+t. These files
+are prominent maked in source.
+ Their copyright belongs to contributors and
+
+they are distributed under LGPL license.
+
+Dis
+claimer
+
+This library is free software; you c
+an redistribute it and/or
+modify it under the
+ terms of the GNU Lesser General Public
+Licen
+se as published by the Free Software Foundati
+on; either
+version 2.1 of the License, or (at
+ your option) any later version.
+
+This librar
+y is distributed in the hope that it will be 
+useful,
+but WITHOUT ANY WARRANTY; without eve
+n the implied warranty of
+MERCHANTABILITY or 
+FITNESS FOR A PARTICULAR PURPOSE.  See the GN
+U
+Lesser General Public License for more deta
+ils.
+
+
