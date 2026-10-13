@@ -946,6 +946,16 @@ bool SdlEventSource::handleKeyUp(SDL_Event &ev, Common::Event &event) {
 }
 
 void SdlEventSource::openJoystick(int joystickIndex) {
+	// Remaster build: if the configured index has no device or is not a game controller while another device is
+	// (common with virtual gamepad drivers occupying the first slots), use the first game controller instead.
+	if (SDL_NumJoysticks() <= joystickIndex || !SDL_IsGameController(joystickIndex)) {
+		for (int i = 0; i < SDL_NumJoysticks(); i++) {
+			if (SDL_IsGameController(i)) {
+				joystickIndex = i;
+				break;
+			}
+		}
+	}
 	if (SDL_NumJoysticks() > joystickIndex) {
 		if (SDL_IsGameController(joystickIndex)) {
 			_controller = SDL_GameControllerOpen(joystickIndex);
@@ -974,14 +984,16 @@ bool SdlEventSource::handleJoystickAdded(const SDL_JoyDeviceEvent &device, Commo
 	debug(5, "SdlEventSource: Received joystick added event for index '%d'", device.which);
 
 	int joystick_num = ConfMan.getInt("joystick_num");
-	if (joystick_num != device.which) {
+	// Remaster build: also take a newly connected controller when none is in use yet.
+	const bool noneOpen = !_controller && !_joystick;
+	if (joystick_num < 0 || (joystick_num != device.which && !(noneOpen && SDL_IsGameController(device.which)))) {
 		return false;
 	}
 
-	debug(5, "SdlEventSource: Newly added joystick with index '%d' matches 'joysticky_num', trying to use it", device.which);
+	debug(5, "SdlEventSource: Newly added joystick with index '%d', trying to use it", device.which);
 
 	closeJoystick();
-	openJoystick(joystick_num);
+	openJoystick(joystick_num == device.which ? joystick_num : device.which);
 
 	event.type = Common::EVENT_INPUT_CHANGED;
 	return true;

@@ -332,7 +332,21 @@ void drawBomp(const BompDrawData &bd) {
 
 			// Finally, draw the decoded, scaled, masked and recolored line onto
 			// the target surface, using the specified shadow mode
+			// COMI remaster: keep what was underneath, then record costume and shadow pixels
+			// (mode 3: colour < 8, see bompApplyShadow3) for the remaster renderer.
+			byte under[1024];
+			const bool noteActor = bd.hdShadowEngine && width <= 1024;
+			if (noteActor)
+				memcpy(under, dst, width);
+
 			bompApplyShadow(bd.shadowMode, bd.shadowPalette, line_ptr, dst, width, 255);
+
+			if (noteActor) {
+				for (int i = 0; i < width; i++) {
+					if (line_ptr[i] != 255)
+						bd.hdShadowEngine->hdNoteActorPixel(dst + i, under[i], dst[i], bd.shadowMode == 3 && line_ptr[i] < 8);
+				}
+			}
 		}
 
 		// Advance to the next line

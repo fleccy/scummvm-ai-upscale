@@ -403,6 +403,19 @@ Common::Rect TextRenderer_v7::calcStringDimensions(const char *str, int x, int y
 	return Common::Rect(x, y, x + width, y + getStringHeight(str));
 }
 
+void ScummEngine_v7::remasterUpdateTextWidth() {
+	// COMI remaster widescreen: keep text inside the visible part of the screen (the room in narrow rooms).
+	if (!_remasterLogicalWidth)
+		return;
+	const int w = remasterTextWidth();
+	if (w <= 20 || _screenHeight <= 20)
+		return; // no usable screen yet (between intro videos): keep the previous text area
+	if (_textV7)
+		_textV7->setScreenWidth(w);
+	_defaultTextClipRect = Common::Rect(w, _screenHeight);
+	_wrappedTextClipRect = _newTextRenderStyle ? Common::Rect(10, 10, w - 10, _screenHeight - 10) : Common::Rect(w, _screenHeight);
+}
+
 void ScummEngine_v7::createTextRenderer(GlyphRenderer_v7 *gr) {
 	assert(gr);
 	_textV7 = new TextRenderer_v7(this, gr);
@@ -413,6 +426,7 @@ void ScummEngine_v7::createTextRenderer(GlyphRenderer_v7 *gr) {
 #pragma mark -
 
 void ScummEngine_v7::enqueueText(const byte *text, int x, int y, byte color, byte charset, TextStyleFlags flags, bool ttsVoiceText, bool ttsIsSubtitle) {
+	remasterUpdateTextWidth();
 	assert(_blastTextQueuePos + 1 <= ARRAYSIZE(_blastTextQueue));
 
 	if (_useCJKMode) {
@@ -663,6 +677,7 @@ void ScummEngine_v7::displayDialog() {
 	if (!_haveMsg)
 		return;
 
+	remasterUpdateTextWidth();
 	Actor *a = NULL;
 	if (getTalkingActor() != 0xFF)
 		a = derefActorSafe(getTalkingActor(), "displayDialog");
@@ -670,7 +685,8 @@ void ScummEngine_v7::displayDialog() {
 	StringTab saveStr = _string[0];
 	if (a && _string[0].overhead) {
 		int s;
-		_string[0].xpos = a->getPos().x + (_screenWidth / 2) - camera._cur.x;
+		// Screen position of the actor. Widescreen: the view is not always centred on the camera.
+		_string[0].xpos = _remasterLogicalWidth ? a->getPos().x - _virtscr[kMainVirtScreen].xstart : a->getPos().x + (_screenWidth / 2) - camera._cur.x;
 		s = a->_scalex * a->_talkPosX / 255;
 		_string[0].xpos += (a->_talkPosX - s) / 2 + s;
 
@@ -688,8 +704,8 @@ void ScummEngine_v7::displayDialog() {
 			if (_string[0].xpos < 80)
 				_string[0].xpos = 80;
 
-			if (_string[0].xpos > _screenWidth - 80)
-				_string[0].xpos = _screenWidth - 80;
+			if (_string[0].xpos > remasterTextWidth() - 80)
+				_string[0].xpos = remasterTextWidth() - 80;
 		}
 	}
 	_charset->setColor(_charsetColor);

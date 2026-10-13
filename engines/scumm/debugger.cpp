@@ -1249,7 +1249,7 @@ void ScummDebugger::drawBox(int box, int color) {
 	if (vs != nullptr)
 		_vm->markRectAsDirty(vs->number, 0, vs->w, 0, vs->h);
 	_vm->drawDirtyScreenParts();
-	_vm->_system->updateScreen();
+	_vm->remasterUpdateScreen();
 }
 
 void ScummDebugger::drawRect(int x, int y, int width, int height, int color) {
@@ -1265,7 +1265,7 @@ void ScummDebugger::drawRect(int x, int y, int width, int height, int color) {
 	if (vs != nullptr)
 		_vm->markRectAsDirty(vs->number, 0, vs->w, 0, vs->h);
 	_vm->drawDirtyScreenParts();
-	_vm->_system->updateScreen();
+	_vm->remasterUpdateScreen();
 }
 
 int ScummDebugger::getNextColor() {
