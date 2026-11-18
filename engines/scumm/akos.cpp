@@ -609,6 +609,7 @@ byte AkosRenderer::paintCelByleRLE(int xMoveCur, int yMoveCur) {
 
 	compData.x = _actorX;
 	compData.y = _actorY;
+	const byte *remasterCelSrc = _srcPtr; // COMI remaster: start of the cel data (before any clipping skip)
 
 	// see ClassicCostumeRenderer::paintCelByleRLE, for smallCostumeScaleTable the same wrapping applies
 	compData.scaleIndexMask = (_vm->_game.heversion >= 61) ? 0xff : -1;
@@ -627,6 +628,11 @@ byte AkosRenderer::paintCelByleRLE(int xMoveCur, int yMoveCur) {
 
 	if (!decode)
 		return drawFlag;
+
+	// COMI remaster: let the HD actor renderer draw this cel from its full-size source.
+	if (_vm->_remasterEnabled && !_actorHitMode)
+		_vm->remasterRecordCel(remasterCelSrc, _width, _height, compData.mask, compData.shr, _palette, _shadowMode,
+			!_drawActorToRight, _remasterCelRect, _vm->_virtscr[kMainVirtScreen].xstart & 7);
 
 	compData.maskPtr = _vm->getMaskBuffer(-(_vm->_virtscr[kMainVirtScreen].xstart & 7), compData.y, _zbuf);
 
@@ -724,6 +730,7 @@ byte AkosRenderer::paintCelCDATRLE(int xmoveCur, int ymoveCur) {
 
 	bdd.shadowMode = _shadowMode;
 	bdd.shadowPalette = _vm->_shadowPalette;
+	bdd.hdShadowEngine = _vm->_remasterEnabled ? _vm : nullptr;
 
 	bdd.actorPalette = _useBompPalette ? _palette : nullptr;
 

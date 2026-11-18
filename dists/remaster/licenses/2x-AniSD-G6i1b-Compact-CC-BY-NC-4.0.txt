@@ -1,0 +1,13 @@
+2x AniSD G6i1b Compact model (models/2x-AniSD-G6i1b-Compact.param/.bin, models/2x-AniSD-G6i1b-Compact-x3-fp16.onnx)
+
+"2x_AniSD_G6i1b_Compact_102500" by Sirosky, https://github.com/Sirosky/Upscale-Hub (release "AniSD"), licensed
+under the Creative Commons Attribution-NonCommercial 4.0 International licence (CC BY-NC 4.0, the LICENSE.md of
+that repository): https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+Source file: 2x_AniSD_G6i1b_Compact_102500.pth
+  https://github.com/Sirosky/Upscale-Hub/releases/download/AniSD/2x_AniSD_G6i1b_Compact_102500.pth
+  SHA-256 886004a9cf1fcf757c9213c484cbba4dbf5f2a41041b9384c238984760c0f48c
+
+Changes: converted from the .pth state dict to ncnn (fp16 weights) by dists/remaster/convert_models.py, and to ONNX
+by dists/remaster/ncnn2onnx.py (with a fixed bicubic 2x -> 3x enlargement added); the weights are otherwise
+unchanged. Non-commercial use only. No warranties are given (see the licence).

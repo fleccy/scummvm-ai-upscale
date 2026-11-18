@@ -1,0 +1,20 @@
+2x-Futsuu-Anime model (models/2x-Futsuu-Anime.param/.bin, models/2x-Futsuu-Anime-x3-fp16.onnx)
+
+"2x-Futsuu-Anime" by zarxrax, https://openmodeldb.info/models/2x-Futsuu-Anime, licensed under the WTFPL (as
+listed on OpenModelDB). Converted from 2x-Futsuu-Anime.pth to ncnn (fp16 weights) by
+dists/remaster/convert_models.py, and to ONNX by dists/remaster/ncnn2onnx.py (with a fixed bicubic 2x -> 3x
+enlargement added); the weights are otherwise unchanged.
+
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+                    Version 2, December 2004
+
+ Copyright (C) 2004 Sam Hocevar <sam@hocevar.net>
+
+ Everyone is permitted to copy and distribute verbatim or modified
+ copies of this license document, and changing it is allowed as long
+ as the name is changed.
+
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+  0. You just DO WHAT THE FUCK YOU WANT TO.

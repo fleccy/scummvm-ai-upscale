@@ -109,6 +109,7 @@ protected:
 
 	// actor _palette
 	uint16 _palette[256] = {};
+	Common::Rect _remasterCelRect; // COMI remaster: unclipped rectangle of the cel being painted
 
 public:
 	struct ByleRLEData {

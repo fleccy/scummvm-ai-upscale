@@ -316,6 +316,12 @@ protected:
 		if (getHeight() == 0 || gameNeedsAspectRatioCorrection()) {
 			return intToFrac(4) / 3;
 		}
+		// SCUMM remaster: a 200-line game upscaled (and possibly widened) keeps its tall pixels (shown 6:5, as on
+		// a 4:3 monitor). The engine sets this transient key; the game's aspect_ratio option turns it off.
+		if (ConfMan.hasKey("remaster_tall_pixels", Common::ConfigManager::kTransientDomain) &&
+		    ConfMan.getBool("remaster_tall_pixels", Common::ConfigManager::kTransientDomain)) {
+			return intToFrac(getWidth()) * 5 / (getHeight() * 6);
+		}
 
 		return intToFrac(getWidth()) / getHeight();
 	}

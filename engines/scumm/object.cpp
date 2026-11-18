@@ -704,6 +704,9 @@ void ScummEngine::drawObject(int obj, int scrollType) {
 		numstrip++;
 	}
 
+	if (_remasterOffLog > 0 && numstrip > 0)
+		remasterOffscreenNoteObject(od.obj_nr, od.x_pos, od.width, ypos, height);   // dev: widescreen reveal check
+
 	byte *patchedBmpPtr = nullptr;
 	// WORKAROUND bug #3208: in all 256-color versions of Indy3, the tapestry
 	// in one of the first rooms of Castle Brunwald has a strange vertical
@@ -1766,7 +1769,7 @@ void ScummEngine_v6::enqueueObject(int objectNumber, int objectX, int objectY, i
 
 	eo = &_blastObjectQueue[_blastObjectQueuePos++];
 	eo->number = objectNumber;
-	eo->rect.left = objectX;
+	eo->rect.left = objectX + remasterV6ScreenShift(objectY);   // remaster widescreen (v6): on the original view
 	eo->rect.top = objectY + _screenTop;
 	if (objectWidth == 0) {
 		eo->rect.right = eo->rect.left + _objs[idx].width;
@@ -1928,6 +1931,12 @@ void ScummEngine_v6::restoreBlastObjectRect(Common::Rect r) {
 		right_strip = _gdi->_numStrips - 1;
 	for (i = left_strip; i <= right_strip; i++)
 		_gdi->resetBackground(r.top, r.bottom, i);
+
+	// COMI remaster: the object's pixels are gone; forget their marks (see remasterForgetMarks).
+	if (_remasterEnabled) {
+		const int x0 = MAX(0, r.left - 8), x1 = MIN((int)vs->w, r.right + 8);
+		remasterForgetMarks((const byte *)vs->getPixels(x0, r.top), vs->pitch, x1 - x0, r.height());
+	}
 
 	markRectAsDirty(kMainVirtScreen, r, USAGE_BIT_RESTORED);
 }

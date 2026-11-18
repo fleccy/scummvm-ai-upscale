@@ -1086,13 +1086,27 @@ void ScummEngine::displayDialog() {
 
 		if (_string[0].xpos < 80)
 			_string[0].xpos = 80;
-		if (_string[0].xpos > _screenWidth - 80)
-			_string[0].xpos = _screenWidth - 80;
+		// remaster widescreen: the visible width of the room (a narrow room is centred, its sides are not the game's)
+		const int textW = remasterClassicWide() ? remasterTextWidth() : _screenWidth;
+		if (_string[0].xpos > textW - 80)
+			_string[0].xpos = textW - 80;
+	}
+
+	if (remasterClassicWide() && !(a && _string[0].overhead) && !remasterPanelRow(_string[0].ypos)) {
+		// remaster widescreen: text placed by the script is on the original 320-wide view, which lies inside the wider
+		// view (shifted once per message: this runs again for each part of it)
+		if (_string[0].xpos != _remasterTextXposShifted)
+			_remasterTextXposBase = _string[0].xpos;
+		_string[0].xpos = _remasterTextXposBase + remasterLogicalOffset();
+		_remasterTextXposShifted = _string[0].xpos;
 	}
 
 	_charset->_top = _string[0].ypos + _screenTop;
 	_charset->_startLeft = _charset->_left = _string[0].xpos;
 	_charset->_right = _string[0].right;
+	// remaster widescreen: text clipped at the original screen's right edge is clipped at the visible room's
+	if (remasterClassicWide() && _charset->_right >= _remasterLogicalWidth - 1)
+		_charset->_right = remasterTextWidth() - 1;
 	_charset->_center = _string[0].center;
 	_charset->setColor(_charsetColor);
 
@@ -1240,8 +1254,12 @@ void ScummEngine::displayDialog() {
 		}
 
 		// Handle line overflow for V3. See also bug #2213.
-		if (_game.version == 3 && _nextLeft >= _screenWidth) {
-			_nextLeft = _screenWidth;
+		// (remaster widescreen: at the edge of what is shown: the message line at the top keeps the original width,
+		// over the room the width of the visible room, a narrow room is centred)
+		const int v3LineW = !remasterClassicWide() ? _screenWidth :
+			(remasterPanelRow(_nextTop - _screenTop) ? _remasterLogicalWidth : remasterTextWidth());
+		if (_game.version == 3 && _nextLeft >= v3LineW) {
+			_nextLeft = v3LineW;
 		}
 		// Handle line breaks for V1-V2
 		if (_game.version <= 2 && _nextLeft >= _screenWidth) {
@@ -1421,6 +1439,11 @@ void ScummEngine::drawString(int a, const byte *msg, Common::TextToSpeechManager
 
 	VirtScreen *vs = findVirtScreen(_charset->_top);
 	bool shadowModeFlag = (vs && vs->number == kMainVirtScreen);
+	if (remasterClassicWide() && vs && vs->number == kMainVirtScreen) {
+		// remaster widescreen: text over the room is placed on the original 320-wide view inside the wider one
+		_charset->_left += remasterLogicalOffset();
+		_charset->_startLeft += remasterLogicalOffset();
+	}
 
 	if (_game.version >= 5 && _charset->getCurID() != -1)
 		memcpy(_charsetColorMap, _charsetData[_charset->getCurID()], _game.id == GID_DIG ? sizeof(_charsetColorMap) : 4);

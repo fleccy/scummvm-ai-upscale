@@ -55,6 +55,15 @@ MODULE_OBJS := \
 	midiparser_ro.o \
 	object.o \
 	palette.o \
+	remaster_ai.o \
+	remaster_dump.o \
+	remaster_game.o \
+	remaster_menu.o \
+	remaster_offscreen.o \
+	remaster_render.o \
+	remaster_tiles.o \
+	remaster_ort.o \
+	remaster_update.o \
 	playback.o \
 	players/player_ad.o \
 	players/player_apple2.o \

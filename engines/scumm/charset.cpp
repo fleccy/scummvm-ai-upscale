@@ -749,6 +749,24 @@ void CharsetRendererPC::drawBits1(Graphics::Surface &dest, int x, int y, const b
 	bool leftShadePixel = false;
 	int savedX = x;
 
+	// Remaster (SCUMM v3 and older, one-bit fonts): glyph and shadow pixels drawn into the verb screen are recorded for
+	// the readable-text overlay. The shadow of one pixel can fall under the next glyph pixel: the scene pixel under
+	// both is kept (see remasterNoteCharsetPixel).
+	const bool noteText = _vm->_remasterEnabled && _vm->_game.version <= 4 && dest.format.bytesPerPixel == 1 &&
+		dest.getPixels() != _vm->_textSurface.getPixels();
+	byte *noteFrom = noteText ? dst - dest.pitch - 1 : nullptr;
+	byte *noteSave = nullptr;
+	if (noteText) {
+		// what was under the glyph box (one pixel around it for the shadows) before this character
+		_remasterBits1Under.resize((width + 2) * (height + 2));
+		noteSave = _remasterBits1Under.data();
+		for (int r = 0; r < height + 2; r++)
+			for (int c = 0; c < width + 2; c++) {
+				const byte *p = noteFrom + r * dest.pitch + c;
+				noteSave[r * (width + 2) + c] = (p >= (const byte *)dest.getPixels() && p < (const byte *)dest.getBasePtr(0, dest.h)) ? *p : 0;
+			}
+	}
+
 	for (y = 0; y < height && y + drawTop < dest.h; y++) {
 		for (x = 0; x < width; x++) {
 			if ((x % 8) == 0) {
@@ -799,6 +817,19 @@ void CharsetRendererPC::drawBits1(Graphics::Surface &dest, int x, int y, const b
 		dst2 += pitch;
 		dst3 += pitch;
 		dst4 += pitch;
+	}
+
+	if (noteText) {
+		// every pixel of the box that changed is a text pixel, with the pixel that was under it
+		const int bw = width + 2;
+		for (int r = 0; r < height + 2; r++)
+			for (int c = 0; c < bw; c++) {
+				const byte *p = noteFrom + r * dest.pitch + c;
+				if (p < (const byte *)dest.getPixels() || p >= (const byte *)dest.getBasePtr(0, dest.h))
+					continue;
+				if (*p != noteSave[r * bw + c])
+					_vm->remasterNoteCharsetPixel(p, noteSave[r * bw + c], true);
+			}
 	}
 }
 
@@ -1411,15 +1442,21 @@ void CharsetRendererClassic::drawBitsN(const Graphics::Surface &s, byte *dst, co
 			amigaMap = _vm->_roomPalette;
 	}
 
+	// Remaster (SCUMM v5): glyphs drawn into the verb screen are recorded for the readable-text overlay.
+	const bool noteText = _vm->_remasterEnabled && _vm->_game.version < 7;
+
 	for (y = 0; y < height && y + drawTop < s.h; y++) {
 		for (x = 0; x < width; x++) {
 			color = (bits >> (8 - bpp)) & 0xFF;
 
 			if (color && y + drawTop >= 0) {
+				const byte under = *dst;
 				if (amigaMap)
 					*dst = amigaMap[cmap[color]];
 				else
 					*dst = cmap[color];
+				if (noteText)
+					_vm->remasterNoteCharsetPixel(dst, under);
 			}
 			dst++;
 			bits <<= bpp;
