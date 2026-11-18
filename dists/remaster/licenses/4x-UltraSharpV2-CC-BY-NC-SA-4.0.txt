@@ -1,0 +1,14 @@
+4x UltraSharpV2 model (models/4x-UltraSharpV2-t128.onnx)
+
+"4x-UltraSharpV2" by Kim2091 (https://github.com/Kim2091, https://huggingface.co/Kim2091/UltraSharpV2), licensed
+under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International licence (CC BY-NC-SA 4.0, as
+stated in the author's release notes): https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+Source file: 4x-UltraSharpV2.safetensors
+  https://huggingface.co/Kim2091/UltraSharpV2/resolve/main/4x-UltraSharpV2.safetensors
+  SHA-256 2b5db674aa8f3864a696dccd1d07d7cc0500fbf220f35044cd30eee9a7f971a7
+
+Changes: exported to ONNX for a fixed 128 x 128 input with an RGBA-bytes wrapper (dists/remaster/export_onnx_fixed.py,
+opset 17, computed in fp32), with the weights stored as fp16 and cast back to fp32 in the graph; the network is
+otherwise unchanged. This converted model is itself licensed under CC BY-NC-SA 4.0. Non-commercial use only. No
+warranties are given (see the licence).

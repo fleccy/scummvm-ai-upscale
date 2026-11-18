@@ -624,7 +624,7 @@ void ScummEngine_v8::o8_cursorCommand() {
 		int y = pop();
 		int x = pop();
 
-		_system->warpMouse(x, y);
+		remasterWarpMouse(x, y);
 		}
 		break;
 	default:

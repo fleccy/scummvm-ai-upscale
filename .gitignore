@@ -314,3 +314,8 @@ __pycache__/
 #Ignore Claude instruction files
 CLAUDE.md
 .claude
+
+# COMI remaster build output (dists/remaster/build-windows.sh)
+/remaster-build/
+/build-windows/
+/remaster-build-linux/

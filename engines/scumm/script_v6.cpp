@@ -1888,6 +1888,15 @@ void ScummEngine_v6::o6_getInventoryCount() {
 void ScummEngine_v6::o6_getVerbFromXY() {
 	int y = pop();
 	int x = pop();
+	// COMI remaster widescreen (v7+): the verb hit test of the scripts works out the pointer on the original view (from
+	// the virtual mouse and the camera), but the verbs (dialogue lines) are drawn on the wider view, whose x 0 is
+	// remasterOrigViewX() columns left of the original view's: a dialogue line at the left of the wider view could not be
+	// clicked, and a click went to the line drawn that far left of the pointer (GitHub issue #7). A point nearer to where the
+	// pointer is on the original view than to the pointer itself is on the original view: look where the verbs are drawn.
+	// Scripts that pass the pointer as it is (VAR_MOUSE_X) are left as they are.
+	const int ov = remasterOrigViewX();
+	if (ov && ABS(x - (_mouse.x - ov)) < ABS(x - _mouse.x))
+		x += ov;
 	int over = findVerbAtPos(x, y);
 	if (over)
 		over = _verbs[over].verbid;
@@ -2066,14 +2075,14 @@ void ScummEngine_v6::o6_roomOps() {
 	case SO_ROOM_SCROLL:
 		b = pop();
 		a = pop();
-		if (a < (_screenWidth / 2))
-			a = (_screenWidth / 2);
-		if (b < (_screenWidth / 2))
-			b = (_screenWidth / 2);
-		if (a > _roomWidth - (_screenWidth / 2))
-			a = _roomWidth - (_screenWidth / 2);
-		if (b > _roomWidth - (_screenWidth / 2))
-			b = _roomWidth - (_screenWidth / 2);
+		if (a < (logicalScreenWidth() / 2))
+			a = (logicalScreenWidth() / 2);
+		if (b < (logicalScreenWidth() / 2))
+			b = (logicalScreenWidth() / 2);
+		if (a > _roomWidth - (logicalScreenWidth() / 2))
+			a = _roomWidth - (logicalScreenWidth() / 2);
+		if (b > _roomWidth - (logicalScreenWidth() / 2))
+			b = _roomWidth - (logicalScreenWidth() / 2);
 		VAR(VAR_CAMERA_MIN_X) = a;
 		VAR(VAR_CAMERA_MAX_X) = b;
 		break;
@@ -3631,6 +3640,7 @@ void ScummEngine_v6::o6_getPixel() {
 	}
 
 	VirtScreen *vs = findVirtScreen(y);
+	x += remasterV6ScreenShift(y);   // remaster widescreen: x on the original view
 
 	if (vs == nullptr || x > _screenWidth - 1 || x < 0) {
 		push(-1);

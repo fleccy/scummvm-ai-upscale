@@ -47,6 +47,7 @@
 #include "scumm/detection_tables.h"
 #include "scumm/file.h"
 #include "scumm/file_nes.h"
+#include "scumm/remaster_game.h"
 
 namespace Scumm {
 
@@ -243,7 +244,8 @@ bool ScummEngine::hasFeature(EngineFeature f) const {
 		(
 			f == kSupportsChangingOptionsDuringRuntime &&
 			(Common::String(_game.guioptions).contains(GAMEOPTION_AUDIO_OVERRIDE) ||
-			 Common::String(_game.guioptions).contains(GAMEOPTION_NETWORK))
+			 Common::String(_game.guioptions).contains(GAMEOPTION_NETWORK) ||
+			 _remasterEnabled) // COMI remaster: its switches are in the in-game options (Game tab)
 		) ||
 		(f == kSupportsQuitDialogOverride && (gameSupportsQuitDialogOverride() || !ChainedGamesMan.empty()));
 }
@@ -707,6 +709,102 @@ static const ExtraGuiOption comiObjectLabelsOption = {
 	0
 };
 
+// Remaster: in-game switches, also available as keys (F10 cycles the display mode). COMI always lists them; the
+// other games the remaster has a profile for (remaster_game.cpp) list the ones that apply once the remaster is set up
+// for them, with the profile's defaults.
+static const ExtraGuiOption remasterAIOption = {
+	_s("AI upscaling (F11)"),
+	_s("Upscale the game in real time with a neural network on the GPU. F10 cycles the display modes (AI HD, the original pixels and, in high-resolution games, VGA, EGA, Amiga and modern pixel art looks)"),
+	"remaster_ai_enabled",
+	true,
+	0,
+	1
+};
+
+static const ExtraGuiOption remasterPerformanceOption = {
+	_s("Performance mode (older GPUs, needs restart)"),
+	_s("AI at 2x instead of the full scale, no HD characters, no grain guard. For graphics cards that struggle with the full quality"),
+	"remaster_performance",
+	false,
+	0,
+	0
+};
+
+static const ExtraGuiOption remasterHDActorsOption = {
+	_s("HD characters"),
+	_s("Draw characters from sprites upscaled once by a heavier AI model and cached (at full size where the game shrinks them) instead of the live AI picture"),
+	"remaster_hd_actors",
+	true,
+	1,
+	0
+};
+
+static const ExtraGuiOption remasterHDBackgroundsOption = {
+	_s("HD backgrounds"),
+	_s("Upscale each room's background once with a heavier AI model (in the background, a moment after entering) for cleaner lines"),
+	"remaster_hd_backgrounds",
+	true,
+	1,
+	0
+};
+
+static const ExtraGuiOption remasterGrainOption = {
+	_s("Grain guard (Shift+F11)"),
+	_s("Soften grainy, dithered areas that the AI would otherwise sharpen into speckle"),
+	"remaster_grain_guard",
+	true,
+	1,
+	0
+};
+
+static const ExtraGuiOption remasterSmoothTextOption = {
+	_s("Smooth subtitles in AI HD"),
+	_s("Draw subtitles and other text with smooth, anti-aliased outlines in AI HD. Off: the game's crisp pixel letters (the retro modes always use those)"),
+	"remaster_smooth_text",
+	true,
+	1,
+	0
+};
+
+// Games with a thin font without outlines (the Indiana Jones games): their text is drawn sharp by default.
+static const ExtraGuiOption remasterSharpTextOption = {
+	_s("Sharp text"),
+	_s("Draw the game's letters with rounded pixel edges. Off: smooth letters in AI HD, the game's exact pixels in the other looks"),
+	"remaster_sharp_text",
+	true,
+	0,
+	0
+};
+
+static const ExtraGuiOption remasterCrtOption = {
+	_s("CRT scanlines (Ctrl+F10)"),
+	_s("Draw scanlines like an old monitor, over any display mode"),
+	"remaster_crt",
+	false,
+	0,
+	0
+};
+
+// Remaster: widescreen side art (also cycled in game with F12).
+static const ExtraGuiOption remasterSideArtOption = {
+	_s("Widescreen side art"),
+	_s("In widescreen mode, fill the sides of narrow rooms with painted side art (if installed) instead of bars"),
+	"remaster_side_art",
+	true,
+	0,
+	0
+};
+
+// Remaster: zoom narrow rooms to fill a 16:9 screen (also cycled in game with F12).
+static const ExtraGuiOption remasterZoomOption = {
+	_s("Zoom narrow rooms to fill the screen (experimental)"),
+	_s("In widescreen mode, scale rooms of the original width up to the full width instead of showing side panels; the view slides up and down to follow the player's character, the cursor and text. Only the game's own picture is shown"),
+	"remaster_zoom",
+	false,
+	0,
+	0
+};
+
 static const ExtraGuiOption mmnesClassicPaletteOption = {
 	_s("Use NES Classic Palette"),
 	_s("Use a more neutral color palette that closely emulates the NES Classic"),
@@ -932,6 +1030,70 @@ const ExtraGuiOption enableRebel1NoDamage = {
 	0
 };
 
+// The remaster's profile for a game id from the configuration (nullptr: not a remastered game).
+static const Scumm::RemasterGameProfile *remasterProfileForGameId(const Common::String &gameid) {
+	if (gameid == "comi")
+		return Scumm::remasterGameProfile(GID_CMI);
+	if (gameid == "dig")
+		return Scumm::remasterGameProfile(GID_DIG);
+	if (gameid == "atlantis")
+		return Scumm::remasterGameProfile(GID_INDY4);
+	if (gameid == "indy3")
+		return Scumm::remasterGameProfile(GID_INDY3);
+	if (gameid == "loom")
+		return Scumm::remasterGameProfile(GID_LOOM);
+	return nullptr;
+}
+
+static ExtraGuiOption remasterWithDefault(const ExtraGuiOption &option, bool defaultState) {
+	ExtraGuiOption o = option;
+	o.defaultState = defaultState;
+	return o;
+}
+
+// The remaster's options for a game (all of COMI's for an empty target, as registerDefaultSettings asks for).
+static void remasterExtraGuiOptions(ExtraGuiOptions &options, const Common::String &target, const Common::String &gameid) {
+	if (gameid == "comi") {
+		options.push_back(remasterAIOption);
+		options.push_back(remasterPerformanceOption);
+		options.push_back(remasterHDActorsOption);
+		options.push_back(remasterHDBackgroundsOption);
+		options.push_back(remasterGrainOption);
+		options.push_back(remasterSmoothTextOption);
+		options.push_back(remasterCrtOption);
+		options.push_back(remasterSideArtOption);
+		options.push_back(remasterZoomOption);
+		return;
+	}
+	// The other remastered games, once set up (as the engine: remaster_path or remaster_ai_model), with the defaults
+	// of their profile. No side art (they have no side-art rooms); zoom to fill where the profile offers it.
+	const Scumm::RemasterGameProfile *rp = remasterProfileForGameId(gameid);
+	if (!rp || !(ConfMan.hasKey("remaster_path", target) || ConfMan.hasKey("remaster_ai_model", target)))
+		return;
+	options.push_back(remasterWithDefault(remasterAIOption, !rp->pixelLook));   // off in the games that start in the pixel look
+	options.push_back(remasterPerformanceOption);
+	options.push_back(remasterWithDefault(remasterHDActorsOption, rp->hdActors));
+	options.push_back(remasterHDBackgroundsOption);
+	options.push_back(remasterWithDefault(remasterGrainOption, rp->grainGuard));
+	options.push_back(rp->sharpText ? remasterSharpTextOption : remasterSmoothTextOption);
+	options.push_back(remasterCrtOption);
+	if (rp->widescreen && rp->zoomToFill)
+		options.push_back(remasterZoomOption);
+}
+
+namespace Scumm {
+
+Common::String remasterDescribeGameOptions(const Common::String &target) {
+	ExtraGuiOptions options;
+	remasterExtraGuiOptions(options, target, ConfMan.get("gameid", target));
+	Common::String list;
+	for (uint i = 0; i < options.size(); i++)
+		list += Common::String::format("%s%s=%d", i ? ", " : "", options[i].configOption, options[i].defaultState ? 1 : 0);
+	return list;
+}
+
+} // End of namespace Scumm
+
 const ExtraGuiOptions ScummMetaEngine::getExtraGuiOptions(const Common::String &target) const {
 	ExtraGuiOptions options;
 	// Query the GUI options
@@ -993,10 +1155,13 @@ const ExtraGuiOptions ScummMetaEngine::getExtraGuiOptions(const Common::String &
 	}
 	if (target.empty() || gameid == "comi") {
 		options.push_back(comiObjectLabelsOption);
+		remasterExtraGuiOptions(options, target, "comi");
 
 		if (!language.equals("en")) {
 			options.push_back(enableCOMISong);
 		}
+	} else {
+		remasterExtraGuiOptions(options, target, gameid);
 	}
 	if (target.empty() || platform == Common::kPlatformNES) {
 		options.push_back(mmnesClassicPaletteOption);
@@ -1077,6 +1242,110 @@ Common::KeymapArray ScummMetaEngine::initKeymaps(const char *target) const {
 				break;
 			}
 		}
+	}
+
+	const Scumm::RemasterGameProfile *remasterProfile = remasterProfileForGameId(gameId);
+	if (gameId != "comi" && remasterProfile) {
+		// The other remastered games: the settings menu on the controller's Back button as well (the keys work without
+		// a keymap). The full set of controller buttons is COMI's (below).
+		Keymap *remasterKeymap = new Keymap(Keymap::kKeymapTypeGame, "remaster", "Remaster");
+		act = new Action("RMMENU", _("Remaster settings"));
+		if (remasterProfile->gameUsesF9) {
+			// the game's own F9 stays the game's (Loom: text on screen on/off)
+			act->setKeyEvent(KeyState(KEYCODE_F9, ASCII_F9, KBD_ALT));
+			act->addDefaultInputMapping("A+F9");
+		} else {
+			act->setKeyEvent(KeyState(KEYCODE_F9, ASCII_F9));
+			act->addDefaultInputMapping("F9");
+		}
+		act->addDefaultInputMapping("JOY_BACK");
+		remasterKeymap->addAction(act);
+		keymaps.push_back(remasterKeymap);
+	}
+
+	if (gameId == "comi") {
+		// COMI remaster: its options on keys and controller buttons (also remappable in Options > Keymaps).
+		Keymap *remasterKeymap = new Keymap(Keymap::kKeymapTypeGame, "comi-remaster", "COMI remaster");
+
+		act = new Action("RMMODE", _("Cycle display mode (AI HD / original / retro)"));
+		act->setKeyEvent(KeyState(KEYCODE_F10, ASCII_F10));
+		act->addDefaultInputMapping("F10");
+		act->addDefaultInputMapping("JOY_UP");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMAI", _("AI upscaling on/off"));
+		act->setKeyEvent(KeyState(KEYCODE_F11, ASCII_F11));
+		act->addDefaultInputMapping("F11");
+		act->addDefaultInputMapping("JOY_RIGHT_TRIGGER");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMSIDES", _("Widescreen side panels: side art / glow / black"));
+		act->setKeyEvent(KeyState(KEYCODE_F12, ASCII_F12));
+		act->addDefaultInputMapping("F12");
+		act->addDefaultInputMapping("JOY_DOWN");
+		act->addDefaultInputMapping("JOY_LEFT_TRIGGER");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMCRT", _("CRT scanlines on/off"));
+		act->setKeyEvent(KeyState(KEYCODE_F10, ASCII_F10, KBD_CTRL));
+		act->addDefaultInputMapping("C+F10");
+		act->addDefaultInputMapping("JOY_LEFT_STICK");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMREPORT", _("Report a problem (screenshot + GitHub issue)"));
+		act->setKeyEvent(KeyState(KEYCODE_F12, ASCII_F12, KBD_CTRL));
+		act->addDefaultInputMapping("C+F12");
+		act->addDefaultInputMapping("JOY_RIGHT_STICK");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMMENU", _("Remaster settings"));
+		act->setKeyEvent(KeyState(KEYCODE_F9, ASCII_F9));
+		act->addDefaultInputMapping("F9");
+		act->addDefaultInputMapping("JOY_BACK");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMPERF", _("Performance overlay on/off"));
+		act->setKeyEvent(KeyState(KEYCODE_F10, ASCII_F10, KBD_SHIFT));
+		act->addDefaultInputMapping("S+F10");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMSPOTS", _("Show hotspots (hold)"));
+		act->setKeyEvent(KeyState(KEYCODE_TAB, ASCII_TAB));
+		act->addDefaultInputMapping("TAB");
+		act->addDefaultInputMapping("JOY_X");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMPHOTO", _("Photo mode (scene as shown + poster-size version)"));
+		act->setKeyEvent(KeyState(KEYCODE_F9, ASCII_F9, KBD_SHIFT));
+		act->addDefaultInputMapping("S+F9");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMUPSCALER", _("Switch upscaler (AI / DirectML / Ultra / TensorRT / FSR)"));
+		act->setKeyEvent(KeyState(KEYCODE_F9, ASCII_F9, KBD_CTRL));
+		act->addDefaultInputMapping("C+F9");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMCOMPARE", _("Comparison slider (original / FSR / standard AI)"));
+		act->setKeyEvent(KeyState(KEYCODE_F11, ASCII_F11, KBD_CTRL));
+		act->addDefaultInputMapping("C+F11");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMSMOOTH", _("Smooth scrolling on/off (experimental)"));
+		act->setKeyEvent(KeyState(KEYCODE_F9, ASCII_F9, KBD_CTRL | KBD_SHIFT));
+		act->addDefaultInputMapping("C+S+F9");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMHOTNEXT", _("Cursor to next hotspot"));
+		act->setCustomEngineActionEvent(kScummActionRemasterHotspotNext);
+		act->addDefaultInputMapping("JOY_RIGHT");
+		remasterKeymap->addAction(act);
+
+		act = new Action("RMHOTPREV", _("Cursor to previous hotspot"));
+		act->setCustomEngineActionEvent(kScummActionRemasterHotspotPrev);
+		act->addDefaultInputMapping("JOY_LEFT");
+		remasterKeymap->addAction(act);
+
+		keymaps.push_back(remasterKeymap);
 	}
 
 	if (gameId == "ft") {

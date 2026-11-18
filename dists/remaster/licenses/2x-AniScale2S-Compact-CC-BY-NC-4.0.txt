@@ -1,0 +1,13 @@
+2x AniScale2S Compact model (models/2x-AniScale2S-Compact.param/.bin, models/2x-AniScale2S-Compact-x3-fp16.onnx)
+
+"2x_AniScale2S_Compact_i8_60K" by Sirosky, https://github.com/Sirosky/Upscale-Hub (release "AniScale2"),
+licensed under the Creative Commons Attribution-NonCommercial 4.0 International licence (CC BY-NC 4.0, the
+LICENSE.md of that repository): https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+Source file: 2x_AniScale2S_Compact_i8_60K.pth
+  https://github.com/Sirosky/Upscale-Hub/releases/download/AniScale2/2x_AniScale2S_Compact_i8_60K.pth
+  SHA-256 916ddf99eac77008834a8aeb3dc74b64b17eee02932c18bca93cfa093106e85d
+
+Changes: converted from the .pth state dict to ncnn (fp16 weights) by dists/remaster/convert_models.py, and to ONNX
+by dists/remaster/ncnn2onnx.py (with a fixed bicubic 2x -> 3x enlargement added); the weights are otherwise
+unchanged. Non-commercial use only. No warranties are given (see the licence).

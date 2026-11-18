@@ -1316,8 +1316,18 @@ bool ScummGameOptionsWidget::save() {
 	ScummOptionsContainerWidget::save();
 
 	for (uint i = 0; i < _options.size(); i++) {
-		if (_checkboxes[i])
-			ConfMan.setBool(_options[i].configOption, _checkboxes[i]->isEnabled() && _checkboxes[i]->getState(), _domain);
+		if (!_checkboxes[i])
+			continue;
+		const char *key = _options[i].configOption;
+		if (!strncmp(key, "remaster_", 9)) {
+			// Remaster: a box greyed out by AI upscaling keeps its tick; one left at the game's default is not saved,
+			// so the setting keeps following the game's profile.
+			const bool state = _checkboxes[i]->getState();
+			if (ConfMan.hasKey(key, _domain) || state != _options[i].defaultState)
+				ConfMan.setBool(key, state, _domain);
+			continue;
+		}
+		ConfMan.setBool(key, _checkboxes[i]->isEnabled() && _checkboxes[i]->getState(), _domain);
 	}
 
 	return true;

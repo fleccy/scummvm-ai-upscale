@@ -74,6 +74,7 @@ protected:
 	TextRenderer_v7 *_textV7;
 	Common::Rect _defaultTextClipRect;
 	Common::Rect _wrappedTextClipRect;
+	void remasterUpdateTextWidth();
 	bool _newTextRenderStyle = false;
 	int _blastTextRectsQueue = 0;
 

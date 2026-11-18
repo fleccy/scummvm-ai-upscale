@@ -33,6 +33,7 @@ class ScummEngine;
 
 class TextRenderer_v7 {
 public:
+	void setScreenWidth(uint16 w) { _screenWidth = w; } // COMI remaster widescreen: visible text width
 	TextRenderer_v7(ScummEngine *vm, GlyphRenderer_v7 *gr);
 	~TextRenderer_v7() {}
 
@@ -68,7 +69,7 @@ private:
 	const byte _2byteCharWidth;
 	const char _lineBreakMarker;
 	const bool _newStyle;
-	const uint16 _screenWidth;
+	uint16 _screenWidth;
 	GlyphRenderer_v7 *_gr;
 };
 

@@ -196,6 +196,7 @@ byte BaseCostumeRenderer::paintCelByleRLECommon(
 	compData.skipWidth = _width;
 	compData.scaleXStep = _drawActorToRight ? 1 : -1;
 
+	_remasterCelRect = rect;
 	markAsDirty(rect, compData, decode);
 	if (!decode)
 		return 0;
@@ -339,6 +340,7 @@ void BaseCostumeRenderer::byleRLEDecode(ByleRLEData &compData, int16 actorHitX, 
 
 					if (color && !masked) {
 						uint16 pcolor;
+						bool shadowPixel = false;
 
 						if (!_akosRendering) {
 							if (_shadowMode & 0x20) {
@@ -383,6 +385,7 @@ void BaseCostumeRenderer::byleRLEDecode(ByleRLEData &compData, int16 actorHitX, 
 									skipColumn = (lastColumnX == compData.x);
 									pcolor = (pcolor << 8) + *dst;
 									pcolor = _shadowTable[pcolor];
+									shadowPixel = true;
 								}
 							}
 						}
@@ -390,7 +393,11 @@ void BaseCostumeRenderer::byleRLEDecode(ByleRLEData &compData, int16 actorHitX, 
 							if (_vm->_bytesPerPixel == 2) {
 								WRITE_UINT16(dst, pcolor);
 							} else {
+								const byte under = *dst;
 								*dst = pcolor;
+								// COMI remaster: remember costume pixels (and whether shadow) for the remaster renderer.
+								if (_vm->_remasterEnabled)
+									_vm->hdNoteActorPixel(dst, under, (byte)pcolor, shadowPixel);
 							}
 						}
 					}

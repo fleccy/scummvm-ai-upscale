@@ -1688,7 +1688,10 @@ void ScummEngine::updatePalette() {
 			 87,  87,  87
 		};
 
-		_system->getPaletteManager()->setPalette(mouseCursorPalette, 252, 3);
+		if (_remasterEnabled)
+			remasterSetPalette(mouseCursorPalette, 252, 3);
+		else
+			_system->getPaletteManager()->setPalette(mouseCursorPalette, 252, 3);
 	} else {
 		bool noirMode = (_game.id == GID_SAMNMAX && readVar(0x8000));
 		int i;
@@ -1769,7 +1772,10 @@ void ScummEngine::updatePalette() {
 			paletteColors[i] = levels[(paletteColors[i] >> 5) & 0x07];
 	}
 
-	_system->getPaletteManager()->setPalette(paletteColors, first, num);
+	if (_remasterEnabled)
+		remasterSetPalette(paletteColors, first, num);
+	else
+		_system->getPaletteManager()->setPalette(paletteColors, first, num);
 
 	if (_macGui)
 		_macGui->setPaletteDirty();

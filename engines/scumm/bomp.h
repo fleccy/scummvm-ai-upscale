@@ -36,6 +36,8 @@ void bompDecodeLineReverse(byte *dst, const byte *src, int size);
 
 
 /** Bomp graphics data */
+class ScummEngine;
+
 struct BompDrawData {
 	Graphics::Surface dst;
 	int x, y;
@@ -54,6 +56,9 @@ struct BompDrawData {
 	uint16 *actorPalette;
 
 	bool mirror;
+
+	// COMI remaster: set when costume pixels should be recorded for the remaster renderer.
+	ScummEngine *hdShadowEngine = nullptr;
 };
 
 void drawBomp(const BompDrawData &bd);

@@ -153,6 +153,7 @@ public:
 protected:
 	virtual void setShadowMode(ShadowType mode);
 	virtual void drawBits1(Graphics::Surface &dest, int x, int y, const byte *src, int drawTop, int width, int height);
+	Common::Array<byte> _remasterBits1Under;   // remaster: the pixels under the glyph box (see drawBits1)
 	void drawBits1Kor(Graphics::Surface &dest, int x1, int y1, const byte *src, int drawTop, int width, int height);
 };
 

@@ -1,0 +1,101 @@
+7767517
+99 126
+Input data 0 1 data
+Convolution Conv_output_0 1 1 data Conv_output_0 0=48 1=3 4=1 5=1 6=1296
+Split split_0 1 3 Conv_output_0 Conv_output_0_s0 Conv_output_0_s1 Conv_output_0_s2
+Convolution Conv_1_output_0 1 1 Conv_output_0_s0 Conv_1_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_1 1 2 Conv_1_output_0 Conv_1_output_0_s0 Conv_1_output_0_s1
+Sigmoid Sigmoid_output_0 1 1 Conv_1_output_0_s0 Sigmoid_output_0
+BinaryOp Mul_output_0 2 1 Conv_1_output_0_s1 Sigmoid_output_0 Mul_output_0 0=2
+Convolution Conv_2_output_0 1 1 Mul_output_0 Conv_2_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_2 1 2 Conv_2_output_0 Conv_2_output_0_s0 Conv_2_output_0_s1
+Sigmoid Sigmoid_1_output_0 1 1 Conv_2_output_0_s0 Sigmoid_1_output_0
+BinaryOp Mul_1_output_0 2 1 Conv_2_output_0_s1 Sigmoid_1_output_0 Mul_1_output_0 0=2
+Convolution Conv_3_output_0 1 1 Mul_1_output_0 Conv_3_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_3 1 2 Conv_3_output_0 Conv_3_output_0_s0 Conv_3_output_0_s1
+Sigmoid Sigmoid_2_output_0 1 1 Conv_3_output_0_s0 Sigmoid_2_output_0
+BinaryOp Sub_output_0 1 1 Sigmoid_2_output_0 Sub_output_0 0=1 1=1 2=5.000000e-01
+BinaryOp Add_output_0 2 1 Conv_3_output_0_s1 Conv_output_0_s1 Add_output_0 0=0
+BinaryOp Mul_2_output_0 2 1 Add_output_0 Sub_output_0 Mul_2_output_0 0=2
+Split split_4 1 3 Mul_2_output_0 Mul_2_output_0_s0 Mul_2_output_0_s1 Mul_2_output_0_s2
+Convolution Conv_4_output_0 1 1 Mul_2_output_0_s0 Conv_4_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_5 1 2 Conv_4_output_0 Conv_4_output_0_s0 Conv_4_output_0_s1
+Sigmoid Sigmoid_3_output_0 1 1 Conv_4_output_0_s0 Sigmoid_3_output_0
+BinaryOp Mul_3_output_0 2 1 Conv_4_output_0_s1 Sigmoid_3_output_0 Mul_3_output_0 0=2
+Convolution Conv_5_output_0 1 1 Mul_3_output_0 Conv_5_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_6 1 2 Conv_5_output_0 Conv_5_output_0_s0 Conv_5_output_0_s1
+Sigmoid Sigmoid_4_output_0 1 1 Conv_5_output_0_s0 Sigmoid_4_output_0
+BinaryOp Mul_4_output_0 2 1 Conv_5_output_0_s1 Sigmoid_4_output_0 Mul_4_output_0 0=2
+Convolution Conv_6_output_0 1 1 Mul_4_output_0 Conv_6_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_7 1 2 Conv_6_output_0 Conv_6_output_0_s0 Conv_6_output_0_s1
+Sigmoid Sigmoid_5_output_0 1 1 Conv_6_output_0_s0 Sigmoid_5_output_0
+BinaryOp Sub_1_output_0 1 1 Sigmoid_5_output_0 Sub_1_output_0 0=1 1=1 2=5.000000e-01
+BinaryOp Add_1_output_0 2 1 Conv_6_output_0_s1 Mul_2_output_0_s1 Add_1_output_0 0=0
+BinaryOp Mul_5_output_0 2 1 Add_1_output_0 Sub_1_output_0 Mul_5_output_0 0=2
+Split split_8 1 2 Mul_5_output_0 Mul_5_output_0_s0 Mul_5_output_0_s1
+Convolution Conv_7_output_0 1 1 Mul_5_output_0_s0 Conv_7_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_9 1 2 Conv_7_output_0 Conv_7_output_0_s0 Conv_7_output_0_s1
+Sigmoid Sigmoid_6_output_0 1 1 Conv_7_output_0_s0 Sigmoid_6_output_0
+BinaryOp Mul_6_output_0 2 1 Conv_7_output_0_s1 Sigmoid_6_output_0 Mul_6_output_0 0=2
+Convolution Conv_8_output_0 1 1 Mul_6_output_0 Conv_8_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_10 1 2 Conv_8_output_0 Conv_8_output_0_s0 Conv_8_output_0_s1
+Sigmoid Sigmoid_7_output_0 1 1 Conv_8_output_0_s0 Sigmoid_7_output_0
+BinaryOp Mul_7_output_0 2 1 Conv_8_output_0_s1 Sigmoid_7_output_0 Mul_7_output_0 0=2
+Convolution Conv_9_output_0 1 1 Mul_7_output_0 Conv_9_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_11 1 2 Conv_9_output_0 Conv_9_output_0_s0 Conv_9_output_0_s1
+Sigmoid Sigmoid_8_output_0 1 1 Conv_9_output_0_s0 Sigmoid_8_output_0
+BinaryOp Sub_2_output_0 1 1 Sigmoid_8_output_0 Sub_2_output_0 0=1 1=1 2=5.000000e-01
+BinaryOp Add_2_output_0 2 1 Conv_9_output_0_s1 Mul_5_output_0_s1 Add_2_output_0 0=0
+BinaryOp Mul_8_output_0 2 1 Add_2_output_0 Sub_2_output_0 Mul_8_output_0 0=2
+Split split_12 1 2 Mul_8_output_0 Mul_8_output_0_s0 Mul_8_output_0_s1
+Convolution Conv_10_output_0 1 1 Mul_8_output_0_s0 Conv_10_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_13 1 2 Conv_10_output_0 Conv_10_output_0_s0 Conv_10_output_0_s1
+Sigmoid Sigmoid_9_output_0 1 1 Conv_10_output_0_s0 Sigmoid_9_output_0
+BinaryOp Mul_9_output_0 2 1 Conv_10_output_0_s1 Sigmoid_9_output_0 Mul_9_output_0 0=2
+Convolution Conv_11_output_0 1 1 Mul_9_output_0 Conv_11_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_14 1 2 Conv_11_output_0 Conv_11_output_0_s0 Conv_11_output_0_s1
+Sigmoid Sigmoid_10_output_0 1 1 Conv_11_output_0_s0 Sigmoid_10_output_0
+BinaryOp Mul_10_output_0 2 1 Conv_11_output_0_s1 Sigmoid_10_output_0 Mul_10_output_0 0=2
+Convolution Conv_12_output_0 1 1 Mul_10_output_0 Conv_12_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_15 1 2 Conv_12_output_0 Conv_12_output_0_s0 Conv_12_output_0_s1
+Sigmoid Sigmoid_11_output_0 1 1 Conv_12_output_0_s0 Sigmoid_11_output_0
+BinaryOp Sub_3_output_0 1 1 Sigmoid_11_output_0 Sub_3_output_0 0=1 1=1 2=5.000000e-01
+BinaryOp Add_3_output_0 2 1 Conv_12_output_0_s1 Mul_8_output_0_s1 Add_3_output_0 0=0
+BinaryOp Mul_11_output_0 2 1 Add_3_output_0 Sub_3_output_0 Mul_11_output_0 0=2
+Split split_16 1 2 Mul_11_output_0 Mul_11_output_0_s0 Mul_11_output_0_s1
+Convolution Conv_13_output_0 1 1 Mul_11_output_0_s0 Conv_13_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_17 1 2 Conv_13_output_0 Conv_13_output_0_s0 Conv_13_output_0_s1
+Sigmoid Sigmoid_12_output_0 1 1 Conv_13_output_0_s0 Sigmoid_12_output_0
+BinaryOp Mul_12_output_0 2 1 Conv_13_output_0_s1 Sigmoid_12_output_0 Mul_12_output_0 0=2
+Convolution Conv_14_output_0 1 1 Mul_12_output_0 Conv_14_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_18 1 2 Conv_14_output_0 Conv_14_output_0_s0 Conv_14_output_0_s1
+Sigmoid Sigmoid_13_output_0 1 1 Conv_14_output_0_s0 Sigmoid_13_output_0
+BinaryOp Mul_13_output_0 2 1 Conv_14_output_0_s1 Sigmoid_13_output_0 Mul_13_output_0 0=2
+Convolution Conv_15_output_0 1 1 Mul_13_output_0 Conv_15_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_19 1 2 Conv_15_output_0 Conv_15_output_0_s0 Conv_15_output_0_s1
+Sigmoid Sigmoid_14_output_0 1 1 Conv_15_output_0_s0 Sigmoid_14_output_0
+BinaryOp Sub_4_output_0 1 1 Sigmoid_14_output_0 Sub_4_output_0 0=1 1=1 2=5.000000e-01
+BinaryOp Add_4_output_0 2 1 Conv_15_output_0_s1 Mul_11_output_0_s1 Add_4_output_0 0=0
+BinaryOp Mul_14_output_0 2 1 Add_4_output_0 Sub_4_output_0 Mul_14_output_0 0=2
+Split split_20 1 2 Mul_14_output_0 Mul_14_output_0_s0 Mul_14_output_0_s1
+Convolution Conv_16_output_0 1 1 Mul_14_output_0_s0 Conv_16_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_21 1 2 Conv_16_output_0 Conv_16_output_0_s0 Conv_16_output_0_s1
+Sigmoid Sigmoid_15_output_0 1 1 Conv_16_output_0_s0 Sigmoid_15_output_0
+BinaryOp Mul_15_output_0 2 1 Conv_16_output_0_s1 Sigmoid_15_output_0 Mul_15_output_0 0=2
+Split split_22 1 2 Mul_15_output_0 Mul_15_output_0_s0 Mul_15_output_0_s1
+Convolution Conv_17_output_0 1 1 Mul_15_output_0_s0 Conv_17_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_23 1 2 Conv_17_output_0 Conv_17_output_0_s0 Conv_17_output_0_s1
+Sigmoid Sigmoid_16_output_0 1 1 Conv_17_output_0_s0 Sigmoid_16_output_0
+BinaryOp Mul_16_output_0 2 1 Conv_17_output_0_s1 Sigmoid_16_output_0 Mul_16_output_0 0=2
+Convolution Conv_18_output_0 1 1 Mul_16_output_0 Conv_18_output_0 0=48 1=3 4=1 5=1 6=20736
+Split split_24 1 2 Conv_18_output_0 Conv_18_output_0_s0 Conv_18_output_0_s1
+Sigmoid Sigmoid_17_output_0 1 1 Conv_18_output_0_s0 Sigmoid_17_output_0
+BinaryOp Sub_5_output_0 1 1 Sigmoid_17_output_0 Sub_5_output_0 0=1 1=1 2=5.000000e-01
+BinaryOp Add_5_output_0 2 1 Conv_18_output_0_s1 Mul_14_output_0_s1 Add_5_output_0 0=0
+BinaryOp Mul_17_output_0 2 1 Add_5_output_0 Sub_5_output_0 Mul_17_output_0 0=2
+Convolution Conv_19_output_0 1 1 Mul_17_output_0 Conv_19_output_0 0=48 1=3 4=1 5=1 6=20736
+Concat Concat_output_0 4 1 Conv_output_0_s2 Conv_19_output_0 Mul_2_output_0_s2 Mul_15_output_0_s1 Concat_output_0 0=0
+Convolution Conv_20_output_0 1 1 Concat_output_0 Conv_20_output_0 0=48 1=1 4=0 5=1 6=9216
+Convolution Conv_21_output_0 1 1 Conv_20_output_0 Conv_21_output_0 0=12 1=3 4=1 5=1 6=5184
+PixelShuffle DepthToSpace_output_0 1 1 Conv_21_output_0 DepthToSpace_output_0 0=2 1=0
+Clip output 1 1 DepthToSpace_output_0 output 0=0.000000e+00 1=1.000000e+00
